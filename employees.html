@@ -13,19 +13,29 @@
       h2 { margin-top: 28px; }
     </style>
     <script>
+      let submitting = false;
       function submitEmployee() {
+        if (submitting) return; // 多重送信防止
         const data = {
-          name: document.getElementById('employeeName').value,
-          email: document.getElementById('employeeEmail').value,
-          phone: document.getElementById('employeePhone').value,
-          role: document.getElementById('employeeRole').value
+          name: document.getElementById('employeeName').value.trim(),
+          phone: document.getElementById('employeePhone').value.trim(),
+          role: document.getElementById('employeeRole').value.trim(),
+          email: '' // バックエンド互換用（削除予定列）
         };
         if (!data.name) { alert('氏名を入力してください'); return; }
-        if (!data.email) { alert('メールアドレスを入力してください'); return; }
-        google.script.run.withSuccessHandler(function() {
-          alert('社員情報を登録しました');
+        submitting = true;
+        const btn = document.getElementById('employeeSubmitBtn');
+        if (btn) btn.disabled = true;
+        google.script.run.withSuccessHandler(function(res) {
+          alert('社員情報を登録しました (ID: ' + (res && res.id ? res.id : '既存') + ')');
           document.getElementById('employeeForm').reset();
+          submitting = false;
+          if (btn) btn.disabled = false;
           loadEmployees();
+        }).withFailureHandler(function(err){
+          alert('登録エラー: ' + (err && err.message ? err.message : err));
+          submitting = false;
+          if (btn) btn.disabled = false;
         }).addEmployee(data);
       }
 
@@ -33,15 +43,16 @@
         google.script.run.withSuccessHandler(function(list) {
           const tbody = document.getElementById('employeeRows');
           if (!list || list.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4">登録された社員はいません</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="3">登録された社員はいません</td></tr>';
             return;
           }
-          let html = '';
-          list.forEach(function(emp) {
-            html += '<tr><td>' + escapeHtml(emp.name) + '</td><td>' + escapeHtml(emp.email) + '</td>' +
-                    '<td>' + escapeHtml(emp.phone || '') + '</td><td>' + escapeHtml(emp.role || '') + '</td></tr>';
-          });
-          tbody.innerHTML = html;
+            let html = '';
+            list.forEach(function(emp) {
+              html += '<tr><td>' + escapeHtml(emp.name) + '</td>' +
+                      '<td>' + escapeHtml(emp.phone || '') + '</td>' +
+                      '<td>' + escapeHtml(emp.role || '') + '</td></tr>';
+            });
+            tbody.innerHTML = html;
         }).getEmployees();
       }
 
@@ -66,22 +77,20 @@
     <form id="employeeForm" onsubmit="event.preventDefault(); submitEmployee();">
       <label for="employeeName">氏名</label>
       <input type="text" id="employeeName" required>
-      <label for="employeeEmail">メールアドレス</label>
-      <input type="email" id="employeeEmail" required>
       <label for="employeePhone">電話番号</label>
       <input type="text" id="employeePhone">
       <label for="employeeRole">役割</label>
       <input type="text" id="employeeRole">
-      <button type="submit">社員を登録</button>
+  <button type="submit" id="employeeSubmitBtn">社員を登録</button>
     </form>
 
     <h2>登録済み社員</h2>
     <table>
       <thead>
-        <tr><th>氏名</th><th>メールアドレス</th><th>電話番号</th><th>役割</th></tr>
+        <tr><th>氏名</th><th>電話番号</th><th>役割</th></tr>
       </thead>
       <tbody id="employeeRows">
-        <tr><td colspan="4">読み込み中...</td></tr>
+        <tr><td colspan="3">読み込み中...</td></tr>
       </tbody>
     </table>
   </body>

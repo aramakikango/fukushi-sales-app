@@ -247,17 +247,29 @@ function exportReportsCsv(params) {
 // 社員レコード追加
 function addEmployee(data) {
   if (!data || !data.name) throw new Error('name は必須です');
-  if (!data.email) throw new Error('email は必須です');
+  const name = String(data.name).trim();
+  if (!name) throw new Error('name は必須です');
   const ss = getSpreadsheet();
   const sheet = ss.getSheetByName('Employees');
   if (!sheet) throw new Error('Employees シートが見つかりません。setupSheets() を実行してください。');
+
+  // 重複登録防止：名前（大文字小文字無視、前後空白除去）で既存チェック
+  const values = sheet.getDataRange().getValues();
+  for (let i = 1; i < values.length; i++) {
+    const r = values[i];
+    const existingName = String(r[1] || '').trim().toLowerCase();
+    if (existingName && existingName === name.toLowerCase()) {
+      return { id: r[0], createdAt: r[5] }; // 既存レコードを返す
+    }
+  }
+
   const id = makeId('EMP');
   const createdAt = nowIso();
   const createdBy = activeUserEmail();
   sheet.appendRow([
     id,
-    data.name || '',
-    data.email || '',
+    name,
+    (data.email || ''), // 互換列。今は空で保存
     data.phone || '',
     data.role || '',
     createdAt,
