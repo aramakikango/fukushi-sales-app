@@ -1,117 +1,262 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <base target="_top">
-    <style>
-      body { font-family: Arial, sans-serif; padding: 24px; }
-      nav a { margin-right: 12px; }
-      label { display: block; margin-top: 12px; }
-      input, textarea, select { width: 100%; padding: 6px; }
-      button { margin-top: 16px; padding: 8px 16px; }
-      table { width: 100%; border-collapse: collapse; margin-top: 24px; }
-      th, td { border-bottom: 1px solid #eee; padding: 8px; text-align: left; vertical-align: top; }
-      h2 { margin-top: 28px; }
-    </style>
-    <script>
-      function submitVisit() {
-        const data = {
-          facilityId: document.getElementById('visitFacility').value,
-          visitDate: document.getElementById('visitDate').value,
-          visitorName: document.getElementById('visitorName').value,
-          visitorEmail: document.getElementById('visitorEmail').value,
-          purpose: document.getElementById('purpose').value,
-          notes: document.getElementById('visitNotes').value
-        };
-        if (!data.facilityId) { alert('施設を選択してください'); return; }
-        google.script.run.withSuccessHandler(function() {
-          alert('来訪を記録しました');
-          document.getElementById('visitForm').reset();
-          loadVisits(data.facilityId);
-        }).addVisit(data);
-      }
+<html lang="ja">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <title>訪問記録</title>
+  <style>
+    body { font-family: "Helvetica Neue", Arial, sans-serif; margin: 0; padding: 24px; background:#fafafa; }
+    h1 { margin-top:0; font-size: 20px; }
+    nav { margin-bottom: 20px; }
+    nav a { display:inline-block; margin: 4px 8px 4px 0; padding:8px 12px; text-decoration:none; border:1px solid #0c66d4; border-radius:4px; color:#0c66d4; font-size:13px; }
+    nav a.active, nav a:hover { background:#0c66d4; color:#fff; }
+    fieldset { border:1px solid #ddd; border-radius:6px; padding:16px; margin-bottom:24px; background:#fff; }
+    legend { font-weight:bold; padding:0 6px; }
+    label { display:block; font-size:12px; margin:8px 0 4px; color:#333; }
+    input[type=text], input[type=date], input[type=email], select, textarea { width:100%; box-sizing:border-box; padding:8px; border:1px solid #bbb; border-radius:4px; font-size:13px; background:#fff; }
+    textarea { resize:vertical; min-height:80px; }
+    button { cursor:pointer; padding:10px 18px; border:none; background:#0c66d4; color:#fff; font-weight:bold; border-radius:4px; font-size:14px; }
+    button:disabled { background:#999; cursor:not-allowed; }
+    .row { display:flex; flex-wrap:wrap; gap:12px; }
+    .col-half { flex:1 1 220px; }
+    table { width:100%; border-collapse:collapse; background:#fff; }
+    th, td { padding:8px 10px; border-bottom:1px solid #eee; font-size:12px; vertical-align:top; }
+    th { background:#f0f6ff; text-align:left; }
+    .tag { display:inline-block; padding:2px 6px; font-size:11px; background:#eef; border:1px solid #ccd; border-radius:4px; }
+    .filter-bar { margin:0 0 12px; display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap; }
+    .status { font-size:12px; color:#555; margin-left:auto; }
+    .error { color:#c00; font-size:12px; margin-top:4px; }
+    .empty { padding:24px; text-align:center; font-size:13px; color:#666; }
+    .inline { display:inline; }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="<?= ScriptApp.getService().getUrl(); ?>?page=index">メニュー</a>
+    <a href="<?= ScriptApp.getService().getUrl(); ?>?page=facilities">施設登録</a>
+    <a href="<?= ScriptApp.getService().getUrl(); ?>?page=visits" class="active">訪問記録</a>
+    <a href="<?= ScriptApp.getService().getUrl(); ?>?page=reports">営業報告</a>
+    <a href="<?= ScriptApp.getService().getUrl(); ?>?page=employees">社員登録</a>
+  </nav>
 
-      function loadFacilities() {
-        google.script.run.withSuccessHandler(function(list) {
-          const select = document.getElementById('visitFacility');
-          select.innerHTML = '<option value="">-- 施設を選択 --</option>';
-          list.forEach(function(f) {
-            const opt = document.createElement('option');
-            opt.value = f.id;
-            opt.textContent = f.name + (f.address ? ' — ' + f.address : '');
-            select.appendChild(opt);
-          });
-        }).getFacilities();
-      }
+  <h1>訪問記録</h1>
+  <p style="font-size:12px; color:#555;">施設ごとの訪問履歴を登録・閲覧できます。施設を先に登録してから利用してください。</p>
 
-      function loadVisits(facilityId) {
-        if (!facilityId) {
-          document.getElementById('visitRows').innerHTML = '<tr><td colspan="4">施設を選択してください</td></tr>';
-          return;
-        }
-        google.script.run.withSuccessHandler(function(list) {
-          const tbody = document.getElementById('visitRows');
-          if (!list || list.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4">来訪記録はありません</td></tr>';
-            return;
-          }
-          let html = '';
-          list.forEach(function(v) {
-            html += '<tr><td>' + escapeHtml(v.visitDate) + '</td><td>' +
-                    escapeHtml(v.visitorName || v.createdBy || '') + '<br>' +
-                    escapeHtml(v.visitorEmail || '') + '</td><td>' +
-                    escapeHtml(v.purpose || '') + '</td><td>' +
-                    escapeHtml(v.notes || '') + '</td></tr>';
-          });
-          tbody.innerHTML = html;
-        }).getVisits({ facilityId: facilityId });
-      }
-
-      function escapeHtml(str) {
-        if (!str) return '';
-        return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-      }
-
-      window.addEventListener('load', function() {
-        loadFacilities();
-        document.getElementById('visitFacility').addEventListener('change', function() {
-          loadVisits(this.value);
-        });
-      });
-    </script>
-  </head>
-  <body>
-    <nav>
-      <a href="?page=index">メニューに戻る</a>
-      <a href="?page=facilities">施設登録</a>
-      <a href="?page=reports">営業報告</a>
-      <a href="?page=employees">社員登録</a>
-    </nav>
-
-    <h1>来訪記録</h1>
-    <form id="visitForm" onsubmit="event.preventDefault(); submitVisit();">
-      <label for="visitFacility">施設</label>
-      <select id="visitFacility" required></select>
-      <label for="visitDate">来訪日時</label>
-      <input type="datetime-local" id="visitDate">
-      <label for="visitorName">訪問者名</label>
-      <input type="text" id="visitorName">
-      <label for="visitorEmail">訪問者メール</label>
-      <input type="email" id="visitorEmail">
+  <fieldset>
+    <legend>訪問記録の追加</legend>
+    <form id="visitForm" autocomplete="off">
+      <div class="row">
+        <div class="col-half">
+          <label for="facilitySelect">施設 <span style="color:#c00">*</span></label>
+          <select id="facilitySelect" required>
+            <option value="">選択してください</option>
+          </select>
+          <div id="facilityHint" class="error" style="display:none;">施設が選択されていません。</div>
+        </div>
+        <div class="col-half">
+          <label for="visitDate">訪問日 <span style="color:#c00">*</span></label>
+          <input type="date" id="visitDate" required>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-half">
+          <label for="visitorName">訪問者氏名 <span style="color:#c00">*</span></label>
+          <input type="text" id="visitorName" placeholder="例：山田 太郎" required>
+        </div>
+        <div class="col-half">
+          <label for="visitorEmail">訪問者メール</label>
+          <input type="email" id="visitorEmail" placeholder="例：taro@example.com">
+        </div>
+      </div>
       <label for="purpose">目的</label>
-      <input type="text" id="purpose">
-      <label for="visitNotes">備考</label>
-      <textarea id="visitNotes" rows="3"></textarea>
-      <button type="submit">来訪を登録</button>
+      <input type="text" id="purpose" placeholder="例：状況確認 / 打合せ 等">
+      <label for="notes">内容メモ</label>
+      <textarea id="notes" placeholder="商談内容・所感など"></textarea>
+      <div style="margin-top:12px; display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+        <button type="submit" id="submitBtn">記録する</button>
+        <button type="button" id="resetBtn" style="background:#777;">リセット</button>
+        <span id="formStatus" class="status"></span>
+      </div>
     </form>
+  </fieldset>
 
-    <h2>最近の来訪</h2>
-    <table>
-      <thead>
-        <tr><th>日時</th><th>訪問者</th><th>目的</th><th>備考</th></tr>
-      </thead>
-      <tbody id="visitRows">
-        <tr><td colspan="4">施設を選択してください</td></tr>
-      </tbody>
-    </table>
-  </body>
+  <fieldset>
+    <legend>訪問履歴</legend>
+    <div class="filter-bar">
+      <div>
+        <label for="filterFacility">施設フィルタ</label>
+        <select id="filterFacility">
+          <option value="">全ての施設</option>
+        </select>
+      </div>
+      <div>
+        <label for="filterFrom">期間（開始）</label>
+        <input type="date" id="filterFrom">
+      </div>
+      <div>
+        <label for="filterTo">期間（終了）</label>
+        <input type="date" id="filterTo">
+      </div>
+      <div>
+        <button type="button" id="reloadBtn">再読み込み</button>
+      </div>
+      <div class="status" id="listStatus"></div>
+    </div>
+    <div style="overflow:auto; max-height:420px; border:1px solid #ddd; border-radius:6px; background:#fff;">
+      <table id="visitsTable">
+        <thead>
+          <tr>
+            <th style="width:140px;">訪問日</th>
+            <th style="width:160px;">施設</th>
+            <th style="width:120px;">訪問者</th>
+            <th>目的</th>
+            <th>内容</th>
+          </tr>
+        </thead>
+        <tbody id="visitsTbody">
+          <tr><td colspan="5" class="empty">読み込み中...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </fieldset>
+
+  <script>
+    // 施設キャッシュ
+    let facilitiesIndex = {}; // id -> {id,name,...}
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadFacilities().then(() => {
+        loadVisits();
+      });
+      // フィルタ操作
+      document.getElementById('reloadBtn').addEventListener('click', loadVisits);
+      document.getElementById('filterFacility').addEventListener('change', loadVisits);
+      document.getElementById('filterFrom').addEventListener('change', loadVisits);
+      document.getElementById('filterTo').addEventListener('change', loadVisits);
+      // フォーム操作
+      document.getElementById('visitForm').addEventListener('submit', onSubmitVisit);
+      document.getElementById('resetBtn').addEventListener('click', () => {
+        document.getElementById('visitForm').reset();
+        setStatus('formStatus', 'フォームを初期化しました');
+      });
+    });
+
+    function setStatus(id, msg, isError) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.textContent = msg || '';
+      el.style.color = isError ? '#c00' : '#555';
+    }
+
+    function loadFacilities() {
+      return new Promise((resolve) => {
+        google.script.run.withSuccessHandler(facs => {
+          const select = document.getElementById('facilitySelect');
+          const filterSelect = document.getElementById('filterFacility');
+          facs.forEach(f => {
+            facilitiesIndex[f.id] = f;
+            select.add(new Option(f.name, f.id));
+            filterSelect.add(new Option(f.name, f.id));
+          });
+          if (!facs.length) {
+            setStatus('formStatus', '施設が未登録です。先に「施設登録」で追加してください。', true);
+          }
+          resolve();
+        }).getFacilities();
+      });
+    }
+
+    function buildVisitParams() {
+      const params = {};
+      const f = document.getElementById('filterFacility').value.trim();
+      if (f) params.facilityId = f;
+      const from = document.getElementById('filterFrom').value;
+      const to = document.getElementById('filterTo').value;
+      if (from) params.from = new Date(from).toISOString();
+      if (to) {
+        // 終了日の終端を含めたい場合は +1 日なども検討可（ここではそのまま）
+        params.to = new Date(to).toISOString();
+      }
+      return params;
+    }
+
+    function loadVisits() {
+      const tbody = document.getElementById('visitsTbody');
+      tbody.innerHTML = '<tr><td colspan="5" class="empty">読み込み中...</td></tr>';
+      setStatus('listStatus', '読込中...');
+      const params = buildVisitParams();
+      google.script.run.withSuccessHandler(list => {
+        renderVisits(list);
+      }).getVisits(params);
+    }
+
+    function renderVisits(list) {
+      const tbody = document.getElementById('visitsTbody');
+      tbody.innerHTML = '';
+      if (!list.length) {
+        tbody.innerHTML = '<tr><td colspan="5" class="empty">該当する訪問記録がありません。</td></tr>';
+        setStatus('listStatus', '0件');
+        return;
+      }
+      list.forEach(v => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${formatDate(v.visitDate)}</td>
+          <td>${escapeHtml(facilitiesIndex[v.facilityId] ? facilitiesIndex[v.facilityId].name : v.facilityId)}</td>
+          <td>${escapeHtml(v.visitorName || '')}<div style="color:#777;font-size:10px;">${escapeHtml(v.visitorEmail || '')}</div></td>
+          <td>${escapeHtml(v.purpose || '')}</td>
+          <td>${escapeHtml(v.notes || '')}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+      setStatus('listStatus', list.length + '件');
+    }
+
+    function onSubmitVisit(e) {
+      e.preventDefault();
+      const facilityId = document.getElementById('facilitySelect').value.trim();
+      const visitDate = document.getElementById('visitDate').value;
+      const visitorName = document.getElementById('visitorName').value.trim();
+      const visitorEmail = document.getElementById('visitorEmail').value.trim();
+      const purpose = document.getElementById('purpose').value.trim();
+      const notes = document.getElementById('notes').value.trim();
+      document.getElementById('facilityHint').style.display = facilityId ? 'none' : 'block';
+      if (!facilityId) return;
+      if (!visitDate) { setStatus('formStatus', '訪問日を入力してください', true); return; }
+      if (!visitorName) { setStatus('formStatus', '訪問者氏名を入力してください', true); return; }
+      setStatus('formStatus', '送信中...');
+      document.getElementById('submitBtn').disabled = true;
+      const payload = {
+        facilityId,
+        visitDate,
+        visitorName,
+        visitorEmail,
+        purpose,
+        notes
+      };
+      google.script.run.withSuccessHandler(res => {
+        setStatus('formStatus', '追加しました (ID: ' + escapeHtml(res.id) + ')');
+        document.getElementById('visitForm').reset();
+        document.getElementById('submitBtn').disabled = false;
+        loadVisits();
+      }).withFailureHandler(err => {
+        setStatus('formStatus', 'エラー: ' + escapeHtml(err.message || err), true);
+        document.getElementById('submitBtn').disabled = false;
+      }).addVisit(payload);
+    }
+
+    function formatDate(iso) {
+      if (!iso) return '';
+      try {
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return iso;
+        return d.toLocaleDateString('ja-JP', { year:'numeric', month:'2-digit', day:'2-digit' });
+      } catch(e) { return iso; }
+    }
+
+    function escapeHtml(str) {
+      return String(str || '').replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[s]));
+    }
+  </script>
+</body>
 </html>
