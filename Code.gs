@@ -57,7 +57,16 @@ function setupSheets() {
     ss.insertSheet('Visits').appendRow(['id','facilityId','visitDate','visitorName','visitorEmail','purpose','notes','createdAt','createdBy']);
   }
   if (!names.includes('Reports')) {
-    ss.insertSheet('Reports').appendRow(['id','facilityId','reportDate','reporterName','reporterEmail','summary','details','followUp','createdAt','createdBy']);
+    ss.insertSheet('Reports').appendRow(['id','facilityId','reportDate','reporterName','reporterEmail','channel','summary','details','followUp','createdAt','createdBy']);
+  } else {
+    // 既存Reportsに channel 列が無ければ追加（summaryの前）
+    const rs = ss.getSheetByName('Reports');
+    const headers = rs.getRange(1,1,1,rs.getLastColumn()).getValues()[0];
+    if (headers.indexOf('channel') === -1) {
+      // 6列目に挿入（1始まり）: id(1) facilityId(2) reportDate(3) reporterName(4) reporterEmail(5) channel(6)
+      rs.insertColumnBefore(6);
+      rs.getRange(1,6).setValue('channel');
+    }
   }
   if (!names.includes('Employees')) {
     ss.insertSheet('Employees').appendRow(['id','name','email','phone','role','createdAt','createdBy']);
@@ -184,18 +193,26 @@ function addReport(data) {
   const createdAt = nowIso();
   const createdBy = activeUserEmail();
   const reportDate = normalizeDate(data.reportDate, createdAt);
-  sheet.appendRow([
+  // ヘッダ確認（channel 無ければ追加）
+  const headers = sheet.getRange(1,1,1,sheet.getLastColumn()).getValues()[0];
+  if (headers.indexOf('channel') === -1) {
+    sheet.insertColumnBefore(6);
+    sheet.getRange(1,6).setValue('channel');
+  }
+  const row = [
     id,
     data.facilityId,
     reportDate,
     data.reporterName || '',
     data.reporterEmail || '',
+    (data.channel || ''),
     data.summary || '',
     data.details || '',
     data.followUp || '',
     createdAt,
     createdBy
-  ]);
+  ];
+  sheet.appendRow(row);
   return { id, createdAt };
 }
 
@@ -206,27 +223,32 @@ function getReports(params) {
   const sheet = ss.getSheetByName('Reports');
   if (!sheet) return [];
   const rows = sheet.getDataRange().getValues();
+  if (!rows.length) return [];
+  const headers = rows[0];
+  const idx = {};
+  headers.forEach((h,i)=> idx[h]=i);
   const list = [];
   for (let i = 1; i < rows.length; i++) {
     const r = rows[i];
     const item = {
-      id: r[0],
-      facilityId: r[1],
-      reportDate: r[2],
-      reporterName: r[3],
-      reporterEmail: r[4],
-      summary: r[5],
-      details: r[6],
-      followUp: r[7],
-      createdAt: r[8],
-      createdBy: r[9]
+      id: r[idx.id] || r[0],
+      facilityId: r[idx.facilityId] || r[1],
+      reportDate: r[idx.reportDate] || r[2],
+      reporterName: r[idx.reporterName] || r[3],
+      reporterEmail: r[idx.reporterEmail] || r[4],
+      channel: idx.channel != null ? r[idx.channel] : '',
+      summary: r[idx.summary] || r[5],
+      details: r[idx.details] || r[6],
+      followUp: r[idx.followUp] || r[7],
+      createdAt: r[idx.createdAt] || r[8],
+      createdBy: r[idx.createdBy] || r[9]
     };
     if (params.facilityId && item.facilityId !== params.facilityId) continue;
     if (params.from && item.reportDate < params.from) continue;
     if (params.to && item.reportDate > params.to) continue;
     if (params.q) {
       const q = params.q.toLowerCase();
-      const text = (item.summary || '') + ' ' + (item.details || '') + ' ' + (item.followUp || '');
+      const text = (item.summary || '') + ' ' + (item.details || '') + ' ' + (item.followUp || '') + ' ' + (item.channel || '');
       if (!text.toLowerCase().includes(q)) continue;
     }
     list.push(item);
@@ -238,7 +260,7 @@ function getReports(params) {
 // 営業報告をCSV文字列としてエクスポート
 function exportReportsCsv(params) {
   const reports = getReports(params);
-  const headers = ['id','facilityId','reportDate','reporterName','reporterEmail','summary','details','followUp','createdAt','createdBy'];
+  const headers = ['id','facilityId','reportDate','reporterName','reporterEmail','channel','summary','details','followUp','createdAt','createdBy'];
   const body = reports.map(r => headers.map(h => (r[h] || '').toString().replace(/\r?\n/g, ' ').replace(/"/g, '""')));
   const csv = [headers.join(',')].concat(body.map(row => '"' + row.join('","') + '"')).join('\n');
   return csv;

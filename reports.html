@@ -17,11 +17,19 @@
         const facilityId = document.getElementById('reportFacility').value;
         const reporterSelect = document.getElementById('reporterSelect');
         const reporterName = reporterSelect && reporterSelect.value ? reporterSelect.options[reporterSelect.selectedIndex].text : '';
+        const channelSelect = document.getElementById('channelSelect');
+        let channel = channelSelect.value;
+        if (channel === 'その他') {
+          const other = document.getElementById('channelOther').value.trim();
+          if (!other) { alert('その他の詳細を入力してください'); return; }
+          channel = 'その他:' + other;
+        }
         const data = {
           facilityId: facilityId,
           reportDate: document.getElementById('reportDate').value,
           reporterName: reporterName,
           reporterEmail: '',
+          channel: channel,
           summary: document.getElementById('summary').value,
           details: document.getElementById('details').value,
           followUp: document.getElementById('followUp').value
@@ -29,12 +37,15 @@
         if (!data.facilityId) { alert('施設を選択してください'); return; }
         if (!data.summary) { alert('要約を入力してください'); return; }
         if (!reporterName) { alert('報告者を選択してください'); return; }
+        if (!channelSelect.value) { alert('報告方法を選択してください'); return; }
         google.script.run.withSuccessHandler(function() {
           alert('営業報告を登録しました');
           document.getElementById('reportForm').reset();
           loadReports(data.facilityId);
           // 選択リセット
           if (reporterSelect) reporterSelect.selectedIndex = 0;
+          if (channelSelect) channelSelect.selectedIndex = 0;
+          document.getElementById('channelOtherWrap').style.display = 'none';
         }).addReport(data);
       }
 
@@ -53,22 +64,22 @@
 
       function loadReports(facilityId) {
         if (!facilityId) {
-          document.getElementById('reportRows').innerHTML = '<tr><td colspan="4">施設を選択してください</td></tr>';
+          document.getElementById('reportRows').innerHTML = '<tr><td colspan="5">施設を選択してください</td></tr>';
           return;
         }
         google.script.run.withSuccessHandler(function(list) {
           const tbody = document.getElementById('reportRows');
           if (!list || list.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4">営業報告はありません</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5">営業報告はありません</td></tr>';
             return;
           }
           let html = '';
           list.forEach(function(r) {
-            html += '<tr><td>' + escapeHtml(r.reportDate || r.createdAt) + '</td><td>' +
-                    escapeHtml(r.summary) + '</td><td>' +
-                    escapeHtml(r.reporterName || r.createdBy || '') + '<br>' +
-                    escapeHtml(r.reporterEmail || '') + '</td><td>' +
-                    escapeHtml(r.details || '') + '<br><em>' + escapeHtml(r.followUp || '') + '</em></td></tr>';
+            html += '<tr><td>' + escapeHtml(r.reportDate || r.createdAt) + '</td>' +
+                    '<td>' + escapeHtml(r.channel || '') + '</td>' +
+                    '<td>' + escapeHtml(r.summary) + '</td>' +
+                    '<td>' + escapeHtml(r.reporterName || r.createdBy || '') + '</td>' +
+                    '<td>' + escapeHtml(r.details || '') + '<br><em>' + escapeHtml(r.followUp || '') + '</em></td></tr>';
           });
           tbody.innerHTML = html;
         }).getReports({ facilityId: facilityId });
@@ -99,6 +110,14 @@
         document.getElementById('reportFacility').addEventListener('change', function() {
           loadReports(this.value);
         });
+        document.getElementById('channelSelect').addEventListener('change', function(){
+          if (this.value === 'その他') {
+            document.getElementById('channelOtherWrap').style.display = 'block';
+          } else {
+            document.getElementById('channelOtherWrap').style.display = 'none';
+            document.getElementById('channelOther').value = '';
+          }
+        });
       });
     </script>
   </head>
@@ -117,6 +136,21 @@
       <select id="reportFacility" required></select>
       <label for="reportDate">報告日時</label>
       <input type="datetime-local" id="reportDate">
+      <label for="channelSelect">報告方法</label>
+      <select id="channelSelect" required>
+        <option value="">-- 選択してください --</option>
+        <option value="訪問">訪問</option>
+        <option value="電話">電話</option>
+        <option value="利用者送迎">利用者送迎</option>
+        <option value="FAX">FAX</option>
+        <option value="メール">メール</option>
+        <option value="オンライン">オンライン</option>
+        <option value="その他">その他</option>
+      </select>
+      <div id="channelOtherWrap" style="display:none;">
+        <label for="channelOther">その他詳細</label>
+        <input type="text" id="channelOther" placeholder="具体的な方法を記載">
+      </div>
       <label for="reporterSelect">報告者（社員）</label>
       <select id="reporterSelect" required>
         <option value="">-- 読み込み中 --</option>
@@ -133,10 +167,10 @@
     <h2>施設別の営業報告</h2>
     <table>
       <thead>
-        <tr><th>報告日時</th><th>要約</th><th>報告者</th><th>詳細 / フォローアップ</th></tr>
+        <tr><th>報告日時</th><th>方法</th><th>要約</th><th>報告者</th><th>詳細 / フォローアップ</th></tr>
       </thead>
       <tbody id="reportRows">
-        <tr><td colspan="4">施設を選択してください</td></tr>
+        <tr><td colspan="5">施設を選択してください</td></tr>
       </tbody>
     </table>
   </body>
