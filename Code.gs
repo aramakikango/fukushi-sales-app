@@ -6,7 +6,7 @@ function getSpreadsheet() {
 
 function doGet(e) {
   const page = (e && e.parameter && e.parameter.page) || 'index';
-  const allowed = ['index', 'facilities', 'visits', 'reports'];
+  const allowed = ['index', 'facilities', 'visits', 'reports', 'employees'];
   const target = allowed.indexOf(page) !== -1 ? page : 'index';
   return HtmlService.createHtmlOutputFromFile(target).setTitle('営業管理');
 }
@@ -26,6 +26,9 @@ function setupSheets() {
   }
   if (!names.includes('Reports')) {
     ss.insertSheet('Reports').appendRow(['id','facilityId','reportDate','reporterName','reporterEmail','summary','details','followUp','createdAt','createdBy']);
+  }
+  if (!names.includes('Employees')) {
+    ss.insertSheet('Employees').appendRow(['id','name','email','phone','role','createdAt','createdBy']);
   }
 }
 
@@ -197,4 +200,46 @@ function exportReportsCsv(params) {
   const body = reports.map(r => headers.map(h => (r[h] || '').toString().replace(/\r?\n/g, ' ').replace(/"/g, '""')));
   const csv = [headers.join(',')].concat(body.map(row => '"' + row.join('","') + '"')).join('\n');
   return csv;
+}
+
+function addEmployee(data) {
+  if (!data || !data.name) throw new Error('name は必須です');
+  if (!data.email) throw new Error('email は必須です');
+  const ss = getSpreadsheet();
+  const sheet = ss.getSheetByName('Employees');
+  if (!sheet) throw new Error('Employees シートが見つかりません。setupSheets() を実行してください。');
+  const id = makeId('EMP');
+  const createdAt = nowIso();
+  const createdBy = activeUserEmail();
+  sheet.appendRow([
+    id,
+    data.name || '',
+    data.email || '',
+    data.phone || '',
+    data.role || '',
+    createdAt,
+    createdBy
+  ]);
+  return { id, createdAt };
+}
+
+function getEmployees() {
+  const ss = getSpreadsheet();
+  const sheet = ss.getSheetByName('Employees');
+  if (!sheet) return [];
+  const rows = sheet.getDataRange().getValues();
+  const list = [];
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i];
+    list.push({
+      id: r[0],
+      name: r[1],
+      email: r[2],
+      phone: r[3],
+      role: r[4],
+      createdAt: r[5],
+      createdBy: r[6]
+    });
+  }
+  return list;
 }

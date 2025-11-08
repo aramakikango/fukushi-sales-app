@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <style>
+      body { font-family: Arial, sans-serif; padding: 24px; }
+      nav a { margin-right: 12px; }
+      label { display: block; margin-top: 12px; }
+      input, textarea, select { width: 100%; padding: 6px; }
+      button { margin-top: 16px; padding: 8px 16px; }
+      table { width: 100%; border-collapse: collapse; margin-top: 24px; }
+      th, td { border-bottom: 1px solid #eee; padding: 8px; text-align: left; vertical-align: top; }
+      h2 { margin-top: 28px; }
+    </style>
+    <script>
+      function submitReport() {
+        const data = {
+          facilityId: document.getElementById('reportFacility').value,
+          reportDate: document.getElementById('reportDate').value,
+          reporterName: document.getElementById('reporterName').value,
+          reporterEmail: document.getElementById('reporterEmail').value,
+          summary: document.getElementById('summary').value,
+          details: document.getElementById('details').value,
+          followUp: document.getElementById('followUp').value
+        };
+        if (!data.facilityId) { alert('施設を選択してください'); return; }
+        if (!data.summary) { alert('要約を入力してください'); return; }
+        google.script.run.withSuccessHandler(function() {
+          alert('営業報告を登録しました');
+          document.getElementById('reportForm').reset();
+          loadReports(data.facilityId);
+        }).addReport(data);
+      }
+
+      function loadFacilities() {
+        google.script.run.withSuccessHandler(function(list) {
+          const select = document.getElementById('reportFacility');
+          select.innerHTML = '<option value="">-- 施設を選択 --</option>';
+          list.forEach(function(f) {
+            const opt = document.createElement('option');
+            opt.value = f.id;
+            opt.textContent = f.name + (f.address ? ' — ' + f.address : '');
+            select.appendChild(opt);
+          });
+        }).getFacilities();
+      }
+
+      function loadReports(facilityId) {
+        if (!facilityId) {
+          document.getElementById('reportRows').innerHTML = '<tr><td colspan="4">施設を選択してください</td></tr>';
+          return;
+        }
+        google.script.run.withSuccessHandler(function(list) {
+          const tbody = document.getElementById('reportRows');
+          if (!list || list.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4">営業報告はありません</td></tr>';
+            return;
+          }
+          let html = '';
+          list.forEach(function(r) {
+            html += '<tr><td>' + escapeHtml(r.reportDate || r.createdAt) + '</td><td>' +
+                    escapeHtml(r.summary) + '</td><td>' +
+                    escapeHtml(r.reporterName || r.createdBy || '') + '<br>' +
+                    escapeHtml(r.reporterEmail || '') + '</td><td>' +
+                    escapeHtml(r.details || '') + '<br><em>' + escapeHtml(r.followUp || '') + '</em></td></tr>';
+          });
+          tbody.innerHTML = html;
+        }).getReports({ facilityId: facilityId });
+      }
+
+      function escapeHtml(str) {
+        if (!str) return '';
+        return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      }
+
+      window.addEventListener('load', function() {
+        loadFacilities();
+        document.getElementById('reportFacility').addEventListener('change', function() {
+          loadReports(this.value);
+        });
+      });
+    </script>
+  </head>
+  <body>
+    <nav>
+      <a href="?page=index">メニューに戻る</a>
+      <a href="?page=facilities">施設登録</a>
+      <a href="?page=visits">来訪記録</a>
+      <a href="?page=employees">社員登録</a>
+    </nav>
+
+    <h1>営業報告</h1>
+    <form id="reportForm" onsubmit="event.preventDefault(); submitReport();">
+      <label for="reportFacility">施設</label>
+      <select id="reportFacility" required></select>
+      <label for="reportDate">報告日時</label>
+      <input type="datetime-local" id="reportDate">
+      <label for="reporterName">報告者名</label>
+      <input type="text" id="reporterName">
+      <label for="reporterEmail">報告者メール</label>
+      <input type="email" id="reporterEmail">
+      <label for="summary">要約（必須）</label>
+      <input type="text" id="summary" required>
+      <label for="details">詳細</label>
+      <textarea id="details" rows="4"></textarea>
+      <label for="followUp">フォローアップ / 次アクション</label>
+      <input type="text" id="followUp">
+      <button type="submit">営業報告を登録</button>
+    </form>
+
+    <h2>施設別の営業報告</h2>
+    <table>
+      <thead>
+        <tr><th>報告日時</th><th>要約</th><th>報告者</th><th>詳細 / フォローアップ</th></tr>
+      </thead>
+      <tbody id="reportRows">
+        <tr><td colspan="4">施設を選択してください</td></tr>
+      </tbody>
+    </table>
+  </body>
+</html>

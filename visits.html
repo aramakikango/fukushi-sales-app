@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <style>
+      body { font-family: Arial, sans-serif; padding: 24px; }
+      nav a { margin-right: 12px; }
+      label { display: block; margin-top: 12px; }
+      input, textarea, select { width: 100%; padding: 6px; }
+      button { margin-top: 16px; padding: 8px 16px; }
+      table { width: 100%; border-collapse: collapse; margin-top: 24px; }
+      th, td { border-bottom: 1px solid #eee; padding: 8px; text-align: left; vertical-align: top; }
+      h2 { margin-top: 28px; }
+    </style>
+    <script>
+      function submitVisit() {
+        const data = {
+          facilityId: document.getElementById('visitFacility').value,
+          visitDate: document.getElementById('visitDate').value,
+          visitorName: document.getElementById('visitorName').value,
+          visitorEmail: document.getElementById('visitorEmail').value,
+          purpose: document.getElementById('purpose').value,
+          notes: document.getElementById('visitNotes').value
+        };
+        if (!data.facilityId) { alert('施設を選択してください'); return; }
+        google.script.run.withSuccessHandler(function() {
+          alert('来訪を記録しました');
+          document.getElementById('visitForm').reset();
+          loadVisits(data.facilityId);
+        }).addVisit(data);
+      }
+
+      function loadFacilities() {
+        google.script.run.withSuccessHandler(function(list) {
+          const select = document.getElementById('visitFacility');
+          select.innerHTML = '<option value="">-- 施設を選択 --</option>';
+          list.forEach(function(f) {
+            const opt = document.createElement('option');
+            opt.value = f.id;
+            opt.textContent = f.name + (f.address ? ' — ' + f.address : '');
+            select.appendChild(opt);
+          });
+        }).getFacilities();
+      }
+
+      function loadVisits(facilityId) {
+        if (!facilityId) {
+          document.getElementById('visitRows').innerHTML = '<tr><td colspan="4">施設を選択してください</td></tr>';
+          return;
+        }
+        google.script.run.withSuccessHandler(function(list) {
+          const tbody = document.getElementById('visitRows');
+          if (!list || list.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4">来訪記録はありません</td></tr>';
+            return;
+          }
+          let html = '';
+          list.forEach(function(v) {
+            html += '<tr><td>' + escapeHtml(v.visitDate) + '</td><td>' +
+                    escapeHtml(v.visitorName || v.createdBy || '') + '<br>' +
+                    escapeHtml(v.visitorEmail || '') + '</td><td>' +
+                    escapeHtml(v.purpose || '') + '</td><td>' +
+                    escapeHtml(v.notes || '') + '</td></tr>';
+          });
+          tbody.innerHTML = html;
+        }).getVisits({ facilityId: facilityId });
+      }
+
+      function escapeHtml(str) {
+        if (!str) return '';
+        return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      }
+
+      window.addEventListener('load', function() {
+        loadFacilities();
+        document.getElementById('visitFacility').addEventListener('change', function() {
+          loadVisits(this.value);
+        });
+      });
+    </script>
+  </head>
+  <body>
+    <nav>
+      <a href="?page=index">メニューに戻る</a>
+      <a href="?page=facilities">施設登録</a>
+      <a href="?page=reports">営業報告</a>
+      <a href="?page=employees">社員登録</a>
+    </nav>
+
+    <h1>来訪記録</h1>
+    <form id="visitForm" onsubmit="event.preventDefault(); submitVisit();">
+      <label for="visitFacility">施設</label>
+      <select id="visitFacility" required></select>
+      <label for="visitDate">来訪日時</label>
+      <input type="datetime-local" id="visitDate">
+      <label for="visitorName">訪問者名</label>
+      <input type="text" id="visitorName">
+      <label for="visitorEmail">訪問者メール</label>
+      <input type="email" id="visitorEmail">
+      <label for="purpose">目的</label>
+      <input type="text" id="purpose">
+      <label for="visitNotes">備考</label>
+      <textarea id="visitNotes" rows="3"></textarea>
+      <button type="submit">来訪を登録</button>
+    </form>
+
+    <h2>最近の来訪</h2>
+    <table>
+      <thead>
+        <tr><th>日時</th><th>訪問者</th><th>目的</th><th>備考</th></tr>
+      </thead>
+      <tbody id="visitRows">
+        <tr><td colspan="4">施設を選択してください</td></tr>
+      </tbody>
+    </table>
+  </body>
+</html>

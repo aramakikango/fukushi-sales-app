@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <style>
+      body { font-family: Arial, sans-serif; padding: 24px; }
+      nav a { margin-right: 12px; }
+      label { display: block; margin-top: 12px; }
+      input, textarea { width: 100%; padding: 6px; }
+      button { margin-top: 16px; padding: 8px 16px; }
+      table { width: 100%; border-collapse: collapse; margin-top: 24px; }
+      th, td { border-bottom: 1px solid #eee; padding: 8px; text-align: left; }
+      h2 { margin-top: 28px; }
+    </style>
+    <script>
+      function submitFacility() {
+        const data = {
+          name: document.getElementById('name').value,
+          address: document.getElementById('address').value,
+          phone: document.getElementById('phone').value,
+          contact: document.getElementById('contact').value,
+          notes: document.getElementById('notes').value
+        };
+        if (!data.name) { alert('施設名を入力してください'); return; }
+        if (!data.address) { alert('住所を入力してください'); return; }
+        if (!data.phone) { alert('電話番号を入力してください'); return; }
+        google.script.run.withSuccessHandler(function() {
+          alert('施設を登録しました');
+          document.getElementById('facilityForm').reset();
+          loadFacilities();
+        }).addFacility(data);
+      }
+
+      function loadFacilities() {
+        google.script.run.withSuccessHandler(function(list) {
+          const tbody = document.getElementById('facilityRows');
+          if (!list || list.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4">登録された施設はまだありません</td></tr>';
+            return;
+          }
+          let html = '';
+          list.forEach(function(f) {
+            html += '<tr><td>' + escapeHtml(f.name) + '</td><td>' + escapeHtml(f.address) +
+                    '</td><td>' + escapeHtml(f.phone || '') + '</td><td>' + escapeHtml(f.contact || '') + '</td></tr>';
+          });
+          tbody.innerHTML = html;
+        }).getFacilities();
+      }
+
+      function escapeHtml(str) {
+        if (!str) return '';
+        return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      }
+
+      window.addEventListener('load', loadFacilities);
+    </script>
+  </head>
+  <body>
+    <nav>
+      <a href="?page=index">メニューに戻る</a>
+      <a href="?page=visits">来訪記録</a>
+      <a href="?page=reports">営業報告</a>
+      <a href="?page=employees">社員登録</a>
+    </nav>
+
+    <h1>施設登録</h1>
+    <form id="facilityForm" onsubmit="event.preventDefault(); submitFacility();">
+      <label for="name">施設名</label>
+      <input type="text" id="name" required>
+      <label for="address">住所</label>
+      <input type="text" id="address" required>
+      <label for="phone">電話番号</label>
+      <input type="text" id="phone" required>
+      <label for="contact">担当者</label>
+      <input type="text" id="contact">
+      <label for="notes">備考</label>
+      <textarea id="notes" rows="4"></textarea>
+      <button type="submit">登録する</button>
+    </form>
+
+    <h2>登録済み施設</h2>
+    <table>
+      <thead>
+        <tr><th>施設名</th><th>住所</th><th>電話番号</th><th>担当者</th></tr>
+      </thead>
+      <tbody id="facilityRows">
+        <tr><td colspan="4">読み込み中...</td></tr>
+      </tbody>
+    </table>
+  </body>
+</html>

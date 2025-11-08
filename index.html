@@ -3,37 +3,23 @@
   <head>
     <base target="_top">
     <style>
-      body { font-family: Arial, sans-serif; padding: 20px; }
-      label { display: block; margin-top: 10px; }
-      input, textarea { width: 100%; padding: 5px; }
-      button { margin-top: 10px; }
+      body { font-family: Arial, sans-serif; padding: 40px; }
+      h1 { margin-bottom: 24px; }
+      p { color: #555; }
+      ul { list-style: none; padding: 0; max-width: 360px; }
+      li { margin: 12px 0; }
+      a { display: block; padding: 16px 20px; border: 1px solid #0c66d4; border-radius: 6px; text-decoration: none; color: #0c66d4; font-weight: bold; }
+      a:hover { background: #0c66d4; color: #fff; }
     </style>
-    <script>
-      function submitForm() {
-        const data = {
-          name: document.getElementById('name').value,
-          address: document.getElementById('address').value,
-          phone: document.getElementById('phone').value,
-          contact: document.getElementById('contact').value,
-          notes: document.getElementById('notes').value
-        };
-        google.script.run.withSuccessHandler(function(res) {
-          alert('登録しました。');
-          document.getElementById('myForm').reset();
-        }).addRecord(data);
-        return false;
-      }
-    </script>
   </head>
   <body>
-    <h2>営業先登録フォーム</h2>
-    <form id="myForm" onsubmit="return submitForm();">
-      <label>施設名<input type="text" id="name" required></label>
-      <label>住所<input type="text" id="address"></label>
-      <label>電話番号<input type="text" id="phone"></label>
-      <label>担当者<input type="text" id="contact"></label>
-      <label>備考<textarea id="notes"></textarea></label>
-      <button type="submit">登録</button>
-    </form>
+    <h1>営業管理メニュー</h1>
+    <p>利用したい機能を選択してください。</p>
+    <ul>
+      <li><a href="?page=facilities">施設登録</a></li>
+      <li><a href="?page=visits">来訪記録</a></li>
+      <li><a href="?page=reports">営業報告</a></li>
+      <li><a href="?page=employees">社員登録</a></li>
+    </ul>
   </body>
 </html>
