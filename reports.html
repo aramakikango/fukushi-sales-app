@@ -14,21 +14,27 @@
     </style>
     <script>
       function submitReport() {
+        const facilityId = document.getElementById('reportFacility').value;
+        const reporterSelect = document.getElementById('reporterSelect');
+        const reporterName = reporterSelect && reporterSelect.value ? reporterSelect.options[reporterSelect.selectedIndex].text : '';
         const data = {
-          facilityId: document.getElementById('reportFacility').value,
+          facilityId: facilityId,
           reportDate: document.getElementById('reportDate').value,
-          reporterName: document.getElementById('reporterName').value,
-          reporterEmail: document.getElementById('reporterEmail').value,
+          reporterName: reporterName,
+          reporterEmail: '',
           summary: document.getElementById('summary').value,
           details: document.getElementById('details').value,
           followUp: document.getElementById('followUp').value
         };
         if (!data.facilityId) { alert('施設を選択してください'); return; }
         if (!data.summary) { alert('要約を入力してください'); return; }
+        if (!reporterName) { alert('報告者を選択してください'); return; }
         google.script.run.withSuccessHandler(function() {
           alert('営業報告を登録しました');
           document.getElementById('reportForm').reset();
           loadReports(data.facilityId);
+          // 選択リセット
+          if (reporterSelect) reporterSelect.selectedIndex = 0;
         }).addReport(data);
       }
 
@@ -73,8 +79,23 @@
         return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
       }
 
+      function loadEmployeesForReporter() {
+        const sel = document.getElementById('reporterSelect');
+        if (!sel) return;
+        sel.innerHTML = '<option value="">-- 報告者を選択 --</option>';
+        google.script.run.withSuccessHandler(function(list) {
+          list.forEach(function(emp) {
+            const opt = document.createElement('option');
+            opt.value = emp.id; // 現状は名前のみ保存。将来用にIDも保持
+            opt.textContent = emp.name || '';
+            sel.appendChild(opt);
+          });
+        }).getEmployees();
+      }
+
       window.addEventListener('load', function() {
         loadFacilities();
+        loadEmployeesForReporter();
         document.getElementById('reportFacility').addEventListener('change', function() {
           loadReports(this.value);
         });
@@ -96,10 +117,10 @@
       <select id="reportFacility" required></select>
       <label for="reportDate">報告日時</label>
       <input type="datetime-local" id="reportDate">
-      <label for="reporterName">報告者名</label>
-      <input type="text" id="reporterName">
-      <label for="reporterEmail">報告者メール</label>
-      <input type="email" id="reporterEmail">
+      <label for="reporterSelect">報告者（社員）</label>
+      <select id="reporterSelect" required>
+        <option value="">-- 読み込み中 --</option>
+      </select>
       <label for="summary">要約（必須）</label>
       <input type="text" id="summary" required>
       <label for="details">詳細</label>
