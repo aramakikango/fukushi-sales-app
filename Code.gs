@@ -299,3 +299,58 @@ function getEmployees() {
   }
   return list;
 }
+
+// 社員更新（id 必須）
+function updateEmployee(data) {
+  if (!data || !data.id) throw new Error('id は必須です');
+  if (!data.name) throw new Error('name は必須です');
+  const id = String(data.id);
+  const name = String(data.name).trim();
+  const ss = getSpreadsheet();
+  const sheet = ss.getSheetByName('Employees');
+  if (!sheet) throw new Error('Employees シートが見つかりません。setupSheets() を実行してください。');
+
+  const values = sheet.getDataRange().getValues();
+  let targetRow = -1; // 0-based（ヘッダ含む）
+  for (let i = 1; i < values.length; i++) {
+    const r = values[i];
+    if (String(r[0]) === id) {
+      targetRow = i; break;
+    }
+  }
+  if (targetRow === -1) throw new Error('指定された社員IDが見つかりません: ' + id);
+
+  // 同名重複チェック（自身は除外）
+  for (let i = 1; i < values.length; i++) {
+    if (i === targetRow) continue;
+    const r = values[i];
+    const existingName = String(r[1] || '').trim().toLowerCase();
+    if (existingName && existingName === name.toLowerCase()) {
+      throw new Error('同じ氏名の社員が既に存在します');
+    }
+  }
+
+  // 更新：列順は [id, name, email, phone, role, createdAt, createdBy]
+  sheet.getRange(targetRow + 1, 2).setValue(name); // name
+  sheet.getRange(targetRow + 1, 3).setValue(data.email || ''); // email（互換）
+  sheet.getRange(targetRow + 1, 4).setValue(data.phone || ''); // phone
+  sheet.getRange(targetRow + 1, 5).setValue(data.role || ''); // role
+  return { id: id };
+}
+
+// 社員削除（id 必須）
+function deleteEmployee(id) {
+  if (!id) throw new Error('id は必須です');
+  const ss = getSpreadsheet();
+  const sheet = ss.getSheetByName('Employees');
+  if (!sheet) throw new Error('Employees シートが見つかりません。setupSheets() を実行してください。');
+  const values = sheet.getDataRange().getValues();
+  for (let i = 1; i < values.length; i++) {
+    const r = values[i];
+    if (String(r[0]) === String(id)) {
+      sheet.deleteRow(i + 1); // 1-based index, ヘッダ含む
+      return { id: id };
+    }
+  }
+  throw new Error('指定された社員IDが見つかりません: ' + id);
+}

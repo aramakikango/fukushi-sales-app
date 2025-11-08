@@ -43,17 +43,103 @@
         google.script.run.withSuccessHandler(function(list) {
           const tbody = document.getElementById('employeeRows');
           if (!list || list.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="3">登録された社員はいません</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="4">登録された社員はいません</td></tr>';
             return;
           }
-            let html = '';
-            list.forEach(function(emp) {
-              html += '<tr><td>' + escapeHtml(emp.name) + '</td>' +
-                      '<td>' + escapeHtml(emp.phone || '') + '</td>' +
-                      '<td>' + escapeHtml(emp.role || '') + '</td></tr>';
-            });
-            tbody.innerHTML = html;
+          let html = '';
+          list.forEach(function(emp) {
+            const id = escapeHtml(emp.id);
+            const name = escapeHtml(emp.name);
+            const phone = escapeHtml(emp.phone || '');
+            const role = escapeHtml(emp.role || '');
+            html += '<tr data-id="' + id + '">' +
+              '<td>' +
+                '<span class="view name">' + name + '</span>' +
+                '<input class="edit name" type="text" value="' + name + '" style="display:none;width:100%" />' +
+              '</td>' +
+              '<td>' +
+                '<span class="view phone">' + phone + '</span>' +
+                '<input class="edit phone" type="text" value="' + phone + '" style="display:none;width:100%" />' +
+              '</td>' +
+              '<td>' +
+                '<span class="view role">' + role + '</span>' +
+                '<input class="edit role" type="text" value="' + role + '" style="display:none;width:100%" />' +
+              '</td>' +
+              '<td>' +
+                '<button type="button" class="editBtn">編集</button>' +
+                '<button type="button" class="saveBtn" style="display:none">保存</button>' +
+                '<button type="button" class="cancelBtn" style="display:none">キャンセル</button>' +
+                '<button type="button" class="deleteBtn" style="margin-left:8px;color:#fff;background:#c0392b">削除</button>' +
+              '</td>' +
+            '</tr>';
+          });
+          tbody.innerHTML = html;
+          bindRowEvents();
         }).getEmployees();
+      }
+
+      function bindRowEvents() {
+        const tbody = document.getElementById('employeeRows');
+        tbody.querySelectorAll('.editBtn').forEach(btn => {
+          btn.addEventListener('click', () => enterEdit(btn.closest('tr')));
+        });
+        tbody.querySelectorAll('.cancelBtn').forEach(btn => {
+          btn.addEventListener('click', () => cancelEdit(btn.closest('tr')));
+        });
+        tbody.querySelectorAll('.saveBtn').forEach(btn => {
+          btn.addEventListener('click', () => saveRow(btn.closest('tr')));
+        });
+        tbody.querySelectorAll('.deleteBtn').forEach(btn => {
+          btn.addEventListener('click', () => deleteRow(btn.closest('tr')));
+        });
+      }
+
+      function enterEdit(tr) {
+        tr.querySelectorAll('.view').forEach(el => el.style.display = 'none');
+        tr.querySelectorAll('.edit').forEach(el => el.style.display = 'block');
+        tr.querySelector('.editBtn').style.display = 'none';
+        tr.querySelector('.saveBtn').style.display = 'inline-block';
+        tr.querySelector('.cancelBtn').style.display = 'inline-block';
+      }
+
+      function cancelEdit(tr) {
+        tr.querySelectorAll('.view').forEach(el => el.style.display = '');
+        tr.querySelectorAll('.edit').forEach(el => el.style.display = 'none');
+        tr.querySelector('.editBtn').style.display = 'inline-block';
+        tr.querySelector('.saveBtn').style.display = 'none';
+        tr.querySelector('.cancelBtn').style.display = 'none';
+      }
+
+      function saveRow(tr) {
+        if (!tr) return;
+        const id = tr.getAttribute('data-id');
+        const name = tr.querySelector('input.edit.name').value.trim();
+        const phone = tr.querySelector('input.edit.phone').value.trim();
+        const role = tr.querySelector('input.edit.role').value.trim();
+        if (!name) { alert('氏名は必須です'); return; }
+        const saveBtn = tr.querySelector('.saveBtn');
+        saveBtn.disabled = true;
+        google.script.run.withSuccessHandler(() => {
+          cancelEdit(tr);
+          loadEmployees();
+        }).withFailureHandler(err => {
+          alert('更新エラー: ' + (err && err.message ? err.message : err));
+          saveBtn.disabled = false;
+        }).updateEmployee({ id, name, phone, role, email: '' });
+      }
+
+      function deleteRow(tr) {
+        if (!tr) return;
+        const id = tr.getAttribute('data-id');
+        if (!confirm('削除してよろしいですか？')) return;
+        const delBtn = tr.querySelector('.deleteBtn');
+        delBtn.disabled = true;
+        google.script.run.withSuccessHandler(() => {
+          loadEmployees();
+        }).withFailureHandler(err => {
+          alert('削除エラー: ' + (err && err.message ? err.message : err));
+          delBtn.disabled = false;
+        }).deleteEmployee(id);
       }
 
       function escapeHtml(str) {
@@ -87,10 +173,15 @@
     <h2>登録済み社員</h2>
     <table>
       <thead>
-        <tr><th>氏名</th><th>電話番号</th><th>役割</th></tr>
+        <tr>
+          <th style="width:30%">氏名</th>
+          <th style="width:25%">電話番号</th>
+          <th style="width:25%">役割</th>
+          <th style="width:20%">操作</th>
+        </tr>
       </thead>
       <tbody id="employeeRows">
-        <tr><td colspan="3">読み込み中...</td></tr>
+        <tr><td colspan="4">読み込み中...</td></tr>
       </tbody>
     </table>
   </body>
