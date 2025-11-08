@@ -16,10 +16,11 @@
     <h1>営業管理メニュー</h1>
     <p>利用したい機能を選択してください。</p>
     <ul>
-      <li><a href="?page=facilities">施設登録</a></li>
-      <li><a href="?page=visits">来訪記録</a></li>
-      <li><a href="?page=reports">営業報告</a></li>
-      <li><a href="?page=employees">社員登録</a></li>
+      <!-- 絶対URL化：iframe/埋込環境で相対パスが /blank を基準に解決される問題への対策 -->
+  <li><a href="<?= ScriptApp.getService().getUrl(); ?>?page=facilities">施設登録</a></li>
+  <li><a href="<?= ScriptApp.getService().getUrl(); ?>?page=visits">来訪記録</a></li>
+  <li><a href="<?= ScriptApp.getService().getUrl(); ?>?page=reports">営業報告</a></li>
+  <li><a href="<?= ScriptApp.getService().getUrl(); ?>?page=employees">社員登録</a></li>
     </ul>
   </body>
 </html>
