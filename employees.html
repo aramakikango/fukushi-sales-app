@@ -55,10 +55,11 @@
   </head>
   <body>
     <nav>
-      <a href="?page=index">メニューに戻る</a>
-      <a href="?page=facilities">施設登録</a>
-      <a href="?page=visits">来訪記録</a>
-      <a href="?page=reports">営業報告</a>
+      <!-- 絶対URL化で iframe 相対リンク問題を回避 -->
+      <a href="<?= ScriptApp.getService().getUrl(); ?>?page=index">メニューに戻る</a>
+      <a href="<?= ScriptApp.getService().getUrl(); ?>?page=facilities">施設登録</a>
+      <a href="<?= ScriptApp.getService().getUrl(); ?>?page=visits">来訪記録</a>
+      <a href="<?= ScriptApp.getService().getUrl(); ?>?page=reports">営業報告</a>
     </nav>
 
     <h1>社員登録</h1>

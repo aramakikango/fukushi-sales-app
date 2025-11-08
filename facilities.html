@@ -57,10 +57,11 @@
   </head>
   <body>
     <nav>
-      <a href="?page=index">メニューに戻る</a>
-      <a href="?page=visits">来訪記録</a>
-      <a href="?page=reports">営業報告</a>
-      <a href="?page=employees">社員登録</a>
+      <!-- 絶対URL化で /blank ベース解決の不具合を回避 -->
+      <a href="<?= ScriptApp.getService().getUrl(); ?>?page=index">メニューに戻る</a>
+      <a href="<?= ScriptApp.getService().getUrl(); ?>?page=visits">来訪記録</a>
+      <a href="<?= ScriptApp.getService().getUrl(); ?>?page=reports">営業報告</a>
+      <a href="<?= ScriptApp.getService().getUrl(); ?>?page=employees">社員登録</a>
     </nav>
 
     <h1>施設登録</h1>
