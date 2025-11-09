@@ -3,6 +3,7 @@
   <head>
     <base target="_top">
     <style>
+      :root { color-scheme: light dark; }
       body { font-family: Arial, sans-serif; padding: 24px; }
       nav a { margin-right: 12px; }
       input, select, textarea { padding: 6px; }
@@ -13,6 +14,13 @@
       @media (max-width: 1000px) { .grid { grid-template-columns: 1fr; } }
       .muted { color: #666; font-size: 12px; }
       .flex { display: flex; gap: 8px; align-items: center; }
+      @media (prefers-color-scheme: dark) {
+        body { background:#111; color:#eaeaea; }
+        th, td { border-bottom:1px solid #333; }
+        input, select, textarea { background:#1e1e1e; color:#eaeaea; border:1px solid #333; }
+        button { background:#2a2a2a; color:#eaeaea; border:1px solid #444; }
+        .muted { color:#aaa; }
+      }
     </style>
     <script>
       // 施設一覧の管理
@@ -210,6 +218,7 @@
     <nav>
       <a href="<?= ScriptApp.getService().getUrl(); ?>?page=index">メニュー</a>
       <a href="<?= ScriptApp.getService().getUrl(); ?>?page=facilities">施設登録</a>
+      <a href="<?= ScriptApp.getService().getUrl(); ?>?page=visits">問い合わせ記録</a>
       <a href="<?= ScriptApp.getService().getUrl(); ?>?page=reports">営業報告</a>
       <a href="<?= ScriptApp.getService().getUrl(); ?>?page=employees">社員</a>
     </nav>

@@ -4,6 +4,7 @@
     <base target="_top">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
+      :root { color-scheme: light dark; }
       body { font-family: Arial, sans-serif; padding: 24px; }
       nav a { margin-right: 12px; display: inline-block; padding: 6px 8px; }
       label { display: block; margin-top: 12px; }
@@ -19,6 +20,13 @@
         nav a { margin-bottom: 6px; font-size: 14px; }
         button { width: 100%; }
         label { margin-top: 10px; }
+      }
+      @media (prefers-color-scheme: dark) {
+        body { background:#111; color:#eaeaea; }
+        th, td { border-bottom:1px solid #333; }
+        input, textarea, select { background:#1e1e1e; color:#eaeaea; border:1px solid #333; }
+        button { background:#2a2a2a; color:#eaeaea; border:1px solid #444; }
+        nav a { color:#8ab4ff; }
       }
     </style>
     <script>
@@ -137,7 +145,7 @@
       <!-- 絶対URL化で /blank ベース解決の不具合を回避 -->
       <a href="<?= ScriptApp.getService().getUrl(); ?>?page=index">メニューに戻る</a>
       <a href="<?= ScriptApp.getService().getUrl(); ?>?page=manage">施設・担当者 管理</a>
-      <a href="<?= ScriptApp.getService().getUrl(); ?>?page=visits">来訪記録</a>
+      <a href="<?= ScriptApp.getService().getUrl(); ?>?page=visits">問い合わせ記録</a>
       <a href="<?= ScriptApp.getService().getUrl(); ?>?page=reports">営業報告</a>
       <a href="<?= ScriptApp.getService().getUrl(); ?>?page=employees">社員登録</a>
     </nav>

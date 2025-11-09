@@ -4,6 +4,7 @@
     <base target="_top">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
+      :root { color-scheme: light dark; }
       body { font-family: Arial, sans-serif; padding: 24px; }
       nav a { margin-right: 12px; display:inline-block; padding:6px 8px; }
       h1 { margin-bottom: 16px; }
@@ -17,6 +18,14 @@
       .table-wrap { overflow-x:auto; }
       .empty { padding:24px; text-align:center; color:#777; }
       @media (max-width:650px){ body { padding:16px; } nav a { font-size:14px; margin-right:6px; } }
+      @media (prefers-color-scheme: dark) {
+        body { background:#111; color:#eaeaea; }
+        label { color:#bbb; }
+        th, td { border-bottom:1px solid #333; }
+        th { background:#1a1a1a; }
+        select, input { background:#1e1e1e; color:#eaeaea; border:1px solid #333; }
+        .empty { color:#aaa; }
+      }
     </style>
     <script>
       function escapeHtml(s){return (s||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
@@ -75,6 +84,7 @@
       <a href="<?= ScriptApp.getService().getUrl(); ?>?page=index">メニュー</a>
       <a href="<?= ScriptApp.getService().getUrl(); ?>?page=facilities">施設登録</a>
       <a href="<?= ScriptApp.getService().getUrl(); ?>?page=manage">施設・担当者管理</a>
+      <a href="<?= ScriptApp.getService().getUrl(); ?>?page=visits">問い合わせ記録</a>
       <a href="<?= ScriptApp.getService().getUrl(); ?>?page=reports">営業報告</a>
     </nav>
     <h1>営業先検索</h1>

@@ -3,6 +3,7 @@
   <head>
     <base target="_top">
     <style>
+      :root { color-scheme: light dark; }
       body { font-family: Arial, sans-serif; padding: 24px; }
       nav a { margin-right: 12px; }
       label { display: block; margin-top: 12px; }
@@ -11,6 +12,12 @@
       table { width: 100%; border-collapse: collapse; margin-top: 24px; }
       th, td { border-bottom: 1px solid #eee; padding: 8px; text-align: left; }
       h2 { margin-top: 28px; }
+      @media (prefers-color-scheme: dark) {
+        body { background:#111; color:#eaeaea; }
+        th, td { border-bottom:1px solid #333; }
+        input, select { background:#1e1e1e; color:#eaeaea; border:1px solid #333; }
+        button { background:#2a2a2a; color:#eaeaea; border:1px solid #444; }
+      }
     </style>
     <script>
       let submitting = false;
@@ -155,7 +162,7 @@
       <!-- 絶対URL化で iframe 相対リンク問題を回避 -->
       <a href="<?= ScriptApp.getService().getUrl(); ?>?page=index">メニューに戻る</a>
       <a href="<?= ScriptApp.getService().getUrl(); ?>?page=facilities">施設登録</a>
-      <a href="<?= ScriptApp.getService().getUrl(); ?>?page=visits">来訪記録</a>
+      <a href="<?= ScriptApp.getService().getUrl(); ?>?page=visits">問い合わせ記録</a>
       <a href="<?= ScriptApp.getService().getUrl(); ?>?page=reports">営業報告</a>
     </nav>
 

@@ -1,50 +1,217 @@
-<label for="visitType">種別</label>
-<select id="visitType" onchange="onVisitTypeChange()">
-  <option value="">-- 選択 --</option>
-  <option value="訪問">訪問（自社スタッフ）</option>
-  <option value="来訪">来訪（利用者・家族等が来所）</option>
-</select>
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+      :root { color-scheme: light dark; }
+      body { font-family: Arial, sans-serif; padding: 24px; }
+      nav a { margin-right: 12px; display:inline-block; padding:6px 8px; }
+      label { display:block; margin-top:12px; }
+      input, select, textarea { width:100%; padding:8px; box-sizing:border-box; }
+      button { margin-top: 12px; padding:8px 14px; }
+      table { width:100%; border-collapse: collapse; margin-top: 16px; }
+      th, td { border-bottom:1px solid #eee; padding:8px; text-align:left; }
+      .muted { color:#666; font-size:12px; }
+      .row { display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+      @media (max-width: 720px) { .row { grid-template-columns: 1fr; } body { padding: 16px; } }
+      /* Dark mode */
+      @media (prefers-color-scheme: dark) {
+        body { background:#111; color:#eaeaea; }
+        a { color:#8ab4ff; }
+        th, td { border-bottom:1px solid #333; }
+        input, select, textarea { background:#1e1e1e; color:#eaeaea; border:1px solid #333; }
+        button { background:#2a2a2a; color:#eaeaea; border:1px solid #444; }
+      }
+    </style>
+    <script>
+      function escapeHtml(str){ if(!str) return ''; return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+      function nowForDatetimeLocal(){
+        const d = new Date();
+        const p = n=> String(n).padStart(2,'0');
+        return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+      }
+      function loadFacilities(){
+        const sel = document.getElementById('visitFacility');
+        sel.innerHTML = '<option value="">-- 施設を選択 --</option>';
+        google.script.run.withSuccessHandler(function(list){
+          list.forEach(function(f){
+            const o = document.createElement('option');
+            o.value = f.id; o.textContent = f.name + (f.address ? ' — ' + f.address : '');
+            sel.appendChild(o);
+          });
+        }).getFacilities();
+      }
+      function onFacilityChange(){
+        const fid = document.getElementById('visitFacility').value;
+        if (!fid) {
+          document.getElementById('visitRows').innerHTML = '<tr><td colspan="6">施設を選択してください</td></tr>';
+          document.getElementById('activityBox').innerHTML = '';
+          return;
+        }
+        google.script.run.withSuccessHandler(function(s){
+          const box = document.getElementById('activityBox');
+          if (!s) { box.innerHTML = ''; return; }
+          const lv = s.lastVisitDate ? new Date(s.lastVisitDate).toLocaleString() : '-';
+          const lr = s.lastReportDate ? new Date(s.lastReportDate).toLocaleString() : '-';
+          box.innerHTML = '訪問/問い合わせ回数: <b>' + (s.visitCount||0) + '</b>（最終: ' + lv + '） / 報告回数: <b>' + (s.reportCount||0) + '</b>（最終: ' + lr + '）';
+        }).getFacilityActivitySummary(fid);
+        loadVisits(fid);
+      }
+      function loadVisits(fid){
+        google.script.run.withSuccessHandler(function(list){
+          const tbody = document.getElementById('visitRows');
+          if (!list || list.length === 0) { tbody.innerHTML = '<tr><td colspan="6">記録はありません</td></tr>'; return; }
+          let html = '';
+          list.forEach(function(v){
+            const d = v.visitDate ? new Date(v.visitDate).toLocaleString() : '';
+            const wishes = [(v.wantsGroupHome?'GH':''),(v.wantsHomeNursing?'訪看':'')].filter(Boolean).join(' / ');
+            html += '<tr>' +
+              '<td>' + escapeHtml(d) + '</td>' +
+              '<td>' + escapeHtml(v.inquiryType || '') + '</td>' +
+              '<td>' + escapeHtml(v.visitorName || '') + (v.visitorRelation? ('（' + escapeHtml(v.visitorRelation) + '）') : '') + '</td>' +
+              '<td>' + escapeHtml(v.visitPurpose || '') + '</td>' +
+              '<td>' + escapeHtml(v.diagnosis || '') + (v.disabilityCategory? (' / ' + escapeHtml(v.disabilityCategory)) : '') + (wishes? (' / ' + wishes) : '') + '</td>' +
+              '<td>' + escapeHtml(v.notes || '') + '</td>' +
+              '</tr>';
+          });
+          tbody.innerHTML = html;
+        }).getVisits({ facilityId: fid });
+      }
+      function onInquiryTypeChange(){
+        const t = document.getElementById('inquiryType').value;
+        document.getElementById('visitorFields').style.display = (t === '来訪') ? 'block' : 'none';
+      }
+      function submitVisit(){
+        const facilityId = document.getElementById('visitFacility').value;
+        if (!facilityId) { alert('施設を選択してください'); return; }
+        const data = {
+          facilityId: facilityId,
+          visitDate: document.getElementById('visitDate').value,
+          inquiryType: document.getElementById('inquiryType').value,
+          visitorName: document.getElementById('visitorName').value,
+          visitorRelation: document.getElementById('visitorRelation').value,
+          diagnosis: document.getElementById('diagnosis').value,
+          disabilityCategory: document.getElementById('disabilityCategory').value,
+          wantsGroupHome: document.getElementById('wantsGroupHome').checked,
+          wantsHomeNursing: document.getElementById('wantsHomeNursing').checked,
+          visitPurpose: document.getElementById('visitPurpose').value,
+          notes: document.getElementById('notes').value
+        };
+        if (!data.inquiryType) { alert('問い合わせ種別を選択してください'); return; }
+        google.script.run.withSuccessHandler(function(){
+          alert('問い合わせ記録を登録しました');
+          document.getElementById('visitForm').reset();
+          document.getElementById('visitDate').value = nowForDatetimeLocal();
+          onInquiryTypeChange();
+          loadVisits(facilityId);
+        }).addVisit(data);
+      }
+      window.addEventListener('load', function(){
+        loadFacilities();
+        document.getElementById('visitFacility').addEventListener('change', onFacilityChange);
+        document.getElementById('inquiryType').addEventListener('change', onInquiryTypeChange);
+        document.getElementById('visitDate').value = nowForDatetimeLocal();
+        onInquiryTypeChange();
+      });
+    </script>
+  </head>
+  <body>
+    <nav>
+      <a href="<?= ScriptApp.getService().getUrl(); ?>?page=index">メニューに戻る</a>
+      <a href="<?= ScriptApp.getService().getUrl(); ?>?page=facilities">施設登録</a>
+      <a href="<?= ScriptApp.getService().getUrl(); ?>?page=reports">営業報告</a>
+      <a href="<?= ScriptApp.getService().getUrl(); ?>?page=employees">社員登録</a>
+    </nav>
 
-<!-- 来訪向けフィールド -->
-<div id="visitorFields" style="display:none; margin-top:8px;">
-  <label for="visitorName">来訪者名</label>
-  <input id="visitorName" type="text" placeholder="例: 山田 太郎">
+    <h1>問い合わせ記録</h1>
+    <form id="visitForm" onsubmit="event.preventDefault(); submitVisit();">
+      <label for="visitFacility">施設</label>
+      <select id="visitFacility" required></select>
+      <div id="activityBox" class="muted" style="margin-top:4px;"></div>
 
-  <label for="visitorRelation">来訪者区分</label>
-  <select id="visitorRelation">
-    <option value="">-- 選択 --</option>
-    <option value="利用者本人">利用者本人</option>
-    <option value="家族">家族</option>
-    <option value="ケアマネ等">ケアマネ等</option>
-    <option value="業者">業者</option>
-    <option value="その他">その他</option>
-  </select>
+      <div class="row">
+        <div>
+          <label for="visitDate">日時</label>
+          <input type="datetime-local" id="visitDate">
+        </div>
+        <div>
+          <label for="inquiryType">問い合わせ種別</label>
+          <select id="inquiryType">
+            <option value="">-- 選択 --</option>
+            <option value="電話">電話</option>
+            <option value="来訪">来訪（利用者・家族等が来所）</option>
+          </select>
+        </div>
+      </div>
 
-  <label for="diagnosis">疾患名 / 主な診断</label>
-  <input id="diagnosis" type="text" placeholder="疾患名を入力">
+      <!-- 来訪向けフィールド -->
+      <div id="visitorFields" style="display:none; margin-top:8px; border:1px solid #eee; padding:12px; border-radius:6px;">
+        <div class="row">
+          <div>
+            <label for="visitorName">来訪者名</label>
+            <input id="visitorName" type="text" placeholder="例: 山田 太郎">
+          </div>
+          <div>
+            <label for="visitorRelation">来訪者区分</label>
+            <select id="visitorRelation">
+              <option value="">-- 選択 --</option>
+              <option value="利用者本人">利用者本人</option>
+              <option value="家族">家族</option>
+              <option value="ケアマネ等">ケアマネ等</option>
+              <option value="業者">業者</option>
+              <option value="その他">その他</option>
+            </select>
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <label for="diagnosis">疾患名 / 主な診断</label>
+            <input id="diagnosis" type="text" placeholder="疾患名を入力">
+          </div>
+          <div>
+            <label for="disabilityCategory">障害区分</label>
+            <select id="disabilityCategory">
+              <option value="">-- 選択 --</option>
+              <option value="身体障害">身体障害</option>
+              <option value="知的障害">知的障害</option>
+              <option value="精神障害">精神障害</option>
+              <option value="高齢による要介護">高齢（要介護）</option>
+              <option value="その他">その他</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label>希望サービス（複数選択可）</label>
+          <label style="display:block; margin-top:4px;"><input type="checkbox" id="wantsGroupHome"> グループホーム希望</label>
+          <label style="display:block; margin-top:4px;"><input type="checkbox" id="wantsHomeNursing"> 訪問看護希望</label>
+        </div>
+      </div>
 
-  <label for="disabilityCategory">障害区分</label>
-  <select id="disabilityCategory">
-    <option value="">-- 選択 --</option>
-    <option value="身体障害">身体障害</option>
-    <option value="知的障害">知的障害</option>
-    <option value="精神障害">精神障害</option>
-    <option value="高齢による要介護">高齢（要介護）</option>
-    <option value="その他">その他</option>
-  </select>
+      <label for="visitPurpose" style="margin-top:12px;">要件 / 目的</label>
+      <input id="visitPurpose" type="text" placeholder="例: 入居相談、サービス内容の確認 など">
 
-  <label>希望サービス（複数選択可）</label>
-  <label><input type="checkbox" id="wantsGroupHome"> グループホーム希望</label>
-  <label><input type="checkbox" id="wantsHomeNursing"> 訪問看護希望</label>
+      <label for="notes">備考</label>
+      <textarea id="notes" rows="3" placeholder="自由記入"></textarea>
 
-  <label for="visitPurpose">来訪目的</label>
-  <input id="visitPurpose" type="text" placeholder="面会／相談／契約等">
-</div>
+      <button type="submit">記録を登録</button>
+    </form>
 
-<script>
-function onVisitTypeChange(){
-  const t = document.getElementById('visitType').value;
-  document.getElementById('visitorFields').style.display = (t === '来訪') ? 'block' : 'none';
-  // 必要なら staffFields も切替
-}
-</script>
+    <h2>施設別の問い合わせ一覧</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>日時</th>
+          <th>種別</th>
+          <th>来訪者</th>
+          <th>要件</th>
+          <th>診断/区分/希望</th>
+          <th>備考</th>
+        </tr>
+      </thead>
+      <tbody id="visitRows">
+        <tr><td colspan="6">施設を選択してください</td></tr>
+      </tbody>
+    </table>
+  </body>
+ </html>

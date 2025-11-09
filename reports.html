@@ -3,6 +3,7 @@
   <head>
     <base target="_top">
     <style>
+      :root { color-scheme: light dark; }
       body { font-family: Arial, sans-serif; padding: 24px; }
       nav a { margin-right: 12px; }
       label { display: block; margin-top: 12px; }
@@ -21,6 +22,15 @@
       @media (max-width: 900px) { .digest-cards { grid-template-columns: repeat(2, 1fr); } }
       @media (max-width: 520px) { .digest-cards { grid-template-columns: 1fr; } }
       @media (max-width: 720px) { .grid2 { grid-template-columns: 1fr; } }
+      @media (prefers-color-scheme: dark) {
+        body { background:#111; color:#eaeaea; }
+        th, td { border-bottom:1px solid #333; }
+        input, textarea, select { background:#1e1e1e; color:#eaeaea; border:1px solid #333; }
+        button { background:#2a2a2a; color:#eaeaea; border:1px solid #444; }
+        .digest-card { background:#1a1a1a; border-color:#333; }
+        .digest-card .meta { color:#aaa; }
+        .muted { color:#aaa; }
+      }
     </style>
     <script>
       // 取得した営業報告の簡易キャッシュ（コピーに使用）
@@ -504,7 +514,7 @@
       <!-- 絶対URL化で iframe / 相対リンクの /blank 問題を回避 -->
       <a href="<?= ScriptApp.getService().getUrl(); ?>?page=index">メニューに戻る</a>
       <a href="<?= ScriptApp.getService().getUrl(); ?>?page=facilities">施設登録</a>
-      <a href="<?= ScriptApp.getService().getUrl(); ?>?page=visits">来訪記録</a>
+      <a href="<?= ScriptApp.getService().getUrl(); ?>?page=visits">問い合わせ記録</a>
       <a href="<?= ScriptApp.getService().getUrl(); ?>?page=employees">社員登録</a>
     </nav>
 

@@ -518,83 +518,126 @@ function getFacilities() {
   return list;
 }
 
-// 訪問記録追加
+// 問い合わせ記録追加（旧訪問記録を包含）
 function addVisit(data) {
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  if (!data || !data.facilityId) throw new Error('facilityId は必須です');
+  const ss = getSpreadsheet();
   let sheet = ss.getSheetByName('Visits');
   if (!sheet) {
     sheet = ss.insertSheet('Visits');
-    const headers = ['id','facilityId','visitDate','visitType','visitorName','visitorRelation','diagnosis','disabilityCategory','wantsGroupHome','wantsHomeNursing','visitPurpose','staffName','notes','createdAt','createdBy'];
-    sheet.appendRow(headers);
+    sheet.appendRow(['id','facilityId','visitDate','inquiryType','visitorName','visitorRelation','diagnosis','disabilityCategory','wantsGroupHome','wantsHomeNursing','visitPurpose','notes','createdAt','createdBy']);
   }
-  // Ensure headers contain all required (簡易チェック)
-  const headers = sheet.getRange(1,1,1,sheet.getLastColumn()).getValues()[0];
-  const required = ['id','facilityId','visitDate','visitType','visitorName','visitorRelation','diagnosis','disabilityCategory','wantsGroupHome','wantsHomeNursing','visitPurpose','staffName','notes','createdAt','createdBy'];
-  required.forEach(function(h){
-    if (headers.indexOf(h) === -1) sheet.getRange(1, sheet.getLastColumn()+1).setValue(h);
+  // ヘッダ拡張（旧visitType互換、staffName削除／inquiryType採用）
+  let headers = sheet.getRange(1,1,1,sheet.getLastColumn()).getValues()[0];
+  const needed = ['id','facilityId','visitDate','inquiryType','visitorName','visitorRelation','diagnosis','disabilityCategory','wantsGroupHome','wantsHomeNursing','visitPurpose','notes','createdAt','createdBy'];
+  needed.forEach(function(h){
+    if (headers.indexOf(h) === -1) {
+      sheet.insertColumnAfter(sheet.getLastColumn());
+      sheet.getRange(1, sheet.getLastColumn()).setValue(h);
+      headers = sheet.getRange(1,1,1,sheet.getLastColumn()).getValues()[0];
+    }
   });
-
-  const id = data.id || Utilities.getUuid();
-  const row = [
-    id,
-    data.facilityId || '',
-    data.visitDate || new Date().toISOString(),
-    data.visitType || '',
-    data.visitorName || '',
-    data.visitorRelation || '',
-    data.diagnosis || '',
-    data.disabilityCategory || '',
-    data.wantsGroupHome ? 'TRUE' : '',
-    data.wantsHomeNursing ? 'TRUE' : '',
-    data.visitPurpose || '',
-    data.staffName || '',
-    data.notes || '',
-    new Date().toISOString(),
-    Session && Session.getActiveUser && Session.getActiveUser().getEmail ? (Session.getActiveUser().getEmail()) : ''
-  ];
+  // 旧 visitType 列が存在し inquiryType が空なら値移行（単回）
+  const visitTypeIdx = headers.indexOf('visitType');
+  const inquiryTypeIdx = headers.indexOf('inquiryType');
+  if (visitTypeIdx !== -1 && inquiryTypeIdx !== -1) {
+    const rng = sheet.getRange(2,1,sheet.getLastRow()-1,sheet.getLastColumn()).getValues();
+    let migrated = false;
+    for (let i=0;i<rng.length;i++) {
+      const row = rng[i];
+      if (row[inquiryTypeIdx] === '' && row[visitTypeIdx] !== '') {
+        sheet.getRange(i+2, inquiryTypeIdx+1).setValue(row[visitTypeIdx]);
+        migrated = true;
+      }
+    }
+    if (migrated) Logger.log('[addVisit] migrated legacy visitType -> inquiryType');
+  }
+  const id = data.id || makeId('VIS');
+  const createdAt = nowIso();
+  const createdBy = activeUserEmail();
+  const visitDate = normalizeDate(data.visitDate, createdAt);
+  const idx = {}; headers.forEach((h,i)=> idx[h]=i);
+  const row = new Array(headers.length).fill('');
+  function set(h,v){ if (idx[h]!=null) row[idx[h]] = v; }
+  set('id', id);
+  set('facilityId', data.facilityId);
+  set('visitDate', visitDate);
+  set('inquiryType', data.inquiryType || data.visitType || ''); // 電話 / 来訪 / 訪問 等
+  set('visitorName', data.visitorName || '');
+  set('visitorRelation', data.visitorRelation || '');
+  set('diagnosis', data.diagnosis || '');
+  set('disabilityCategory', data.disabilityCategory || '');
+  set('wantsGroupHome', data.wantsGroupHome ? '1' : '');
+  set('wantsHomeNursing', data.wantsHomeNursing ? '1' : '');
+  set('visitPurpose', data.visitPurpose || '');
+  set('notes', data.notes || '');
+  set('createdAt', createdAt);
+  set('createdBy', createdBy);
   sheet.appendRow(row);
-  return { id: id };
+  return { id, createdAt };
 }
 
 function getVisits(params) {
   params = params || {};
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const ss = getSpreadsheet();
   const sheet = ss.getSheetByName('Visits');
   if (!sheet) return [];
-  const values = sheet.getDataRange().getValues();
-  const headers = values.shift();
-  const rows = values.map(function(r){
-    const obj = {};
-    headers.forEach(function(h,i){ obj[h]=r[i]; });
-    return obj;
-  });
-  // フィルタ例
-  return rows.filter(function(r){
-    if (params.facilityId && String(r.facilityId) !== String(params.facilityId)) return false;
-    if (params.visitType && params.visitType !== '') {
-      if (String(r.visitType) !== String(params.visitType)) return false;
+  const rows = sheet.getDataRange().getValues();
+  if (!rows.length) return [];
+  const headers = rows[0];
+  const idx = {}; headers.forEach((h,i)=> idx[h]=i);
+  const list = [];
+  for (let i=1;i<rows.length;i++) {
+    const r = rows[i];
+    const item = {
+      id: r[idx.id] || r[0],
+      facilityId: r[idx.facilityId] || r[1],
+      visitDate: r[idx.visitDate] || r[2],
+      inquiryType: idx.inquiryType!=null ? r[idx.inquiryType] : (idx.visitType!=null ? r[idx.visitType] : ''),
+      visitorName: idx.visitorName!=null ? r[idx.visitorName] : '',
+      visitorRelation: idx.visitorRelation!=null ? r[idx.visitorRelation] : '',
+      diagnosis: idx.diagnosis!=null ? r[idx.diagnosis] : '',
+      disabilityCategory: idx.disabilityCategory!=null ? r[idx.disabilityCategory] : '',
+      wantsGroupHome: idx.wantsGroupHome!=null ? r[idx.wantsGroupHome] : '',
+      wantsHomeNursing: idx.wantsHomeNursing!=null ? r[idx.wantsHomeNursing] : '',
+      visitPurpose: idx.visitPurpose!=null ? r[idx.visitPurpose] : '',
+      notes: idx.notes!=null ? r[idx.notes] : '',
+      createdAt: idx.createdAt!=null ? r[idx.createdAt] : '',
+      createdBy: idx.createdBy!=null ? r[idx.createdBy] : ''
+    };
+    if (params.facilityId && String(item.facilityId) !== String(params.facilityId)) continue;
+    if (params.inquiryType && params.inquiryType !== '') {
+      if (String(item.inquiryType) !== String(params.inquiryType)) continue;
     }
     if (params.disabilityCategory && params.disabilityCategory !== '') {
-      if (!r.disabilityCategory || String(r.disabilityCategory) !== String(params.disabilityCategory)) return false;
+      if (!item.disabilityCategory || String(item.disabilityCategory) !== String(params.disabilityCategory)) continue;
     }
-    return true;
-  });
+    list.push(item);
+  }
+  list.sort((a,b)=> (b.visitDate||'').localeCompare(a.visitDate||''));
+  return list;
 }
 
 // 施設の活動サマリー（訪問回数/最終訪問日、報告回数/最終報告日）
 function getFacilityActivitySummary(facilityId) {
   if (!facilityId) return { visitCount: 0, lastVisitDate: '', reportCount: 0, lastReportDate: '' };
   const ss = getSpreadsheet();
-  // Visits
+  // Visits（問い合わせ記録）
   let visitCount = 0, lastVisitDate = '';
   const vs = ss.getSheetByName('Visits');
   if (vs) {
     const rows = vs.getDataRange().getValues();
-    for (let i = 1; i < rows.length; i++) {
-      if (String(rows[i][1]) === String(facilityId)) {
-        visitCount++;
-        const d = rows[i][2] || rows[i][7];
-        if (d && String(d) > String(lastVisitDate)) lastVisitDate = String(d);
+    if (rows.length > 1) {
+      const headers = rows[0];
+      const vidx = {}; headers.forEach((h,i)=> vidx[h]=i);
+      for (let i=1;i<rows.length;i++) {
+        const r = rows[i];
+        const fid = vidx.facilityId!=null ? r[vidx.facilityId] : r[1];
+        if (String(fid) === String(facilityId)) {
+          visitCount++;
+          const d = vidx.visitDate!=null ? r[vidx.visitDate] : r[2];
+          if (d && String(d) > String(lastVisitDate)) lastVisitDate = String(d);
+        }
       }
     }
   }

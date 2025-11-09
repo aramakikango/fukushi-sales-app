@@ -3,6 +3,7 @@
   <head>
     <base target="_top">
     <style>
+      :root { color-scheme: light dark; }
       body { font-family: Arial, sans-serif; padding: 40px; }
       h1 { margin-bottom: 24px; }
       p { color: #555; }
@@ -10,6 +11,12 @@
       li { margin: 12px 0; }
       a { display: block; padding: 16px 20px; border: 1px solid #0c66d4; border-radius: 6px; text-decoration: none; color: #0c66d4; font-weight: bold; }
       a:hover { background: #0c66d4; color: #fff; }
+      @media (prefers-color-scheme: dark) {
+        body { background: #111; color: #eaeaea; }
+        p { color: #bbb; }
+        a { color:#8ab4ff; border-color:#3769e6; }
+        a:hover { background:#1f3a75; color:#eaeaea; }
+      }
     </style>
   </head>
   <body>
@@ -20,7 +27,7 @@
   <li><a href="<?= ScriptApp.getService().getUrl(); ?>?page=facilities">施設登録</a></li>
   <li><a href="<?= ScriptApp.getService().getUrl(); ?>?page=targets">営業先検索</a></li>
   <li><a href="<?= ScriptApp.getService().getUrl(); ?>?page=manage">施設・担当者 管理</a></li>
-  <li><a href="<?= ScriptApp.getService().getUrl(); ?>?page=visits">来訪記録</a></li>
+  <li><a href="<?= ScriptApp.getService().getUrl(); ?>?page=visits">問い合わせ記録</a></li>
   <li><a href="<?= ScriptApp.getService().getUrl(); ?>?page=reports">営業報告</a></li>
   <li><a href="<?= ScriptApp.getService().getUrl(); ?>?page=employees">社員登録</a></li>
     </ul>
