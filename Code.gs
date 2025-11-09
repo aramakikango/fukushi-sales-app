@@ -89,6 +89,18 @@ function setupSheets() {
         cs.getRange(1, cs.getLastColumn()).setValue('contactNotes');
       }
     }
+    // 名刺画像のファイルID列がなければ追加（contactNotes の後ろ）
+    const headers2 = cs.getRange(1,1,1,cs.getLastColumn()).getValues()[0];
+    if (headers2.indexOf('cardFileId') === -1) {
+      const notesIdx = headers2.indexOf('contactNotes');
+      if (notesIdx !== -1) {
+        cs.insertColumnAfter(notesIdx + 1);
+        cs.getRange(1, notesIdx + 2).setValue('cardFileId');
+      } else {
+        cs.insertColumnAfter(cs.getLastColumn());
+        cs.getRange(1, cs.getLastColumn()).setValue('cardFileId');
+      }
+    }
   }
   // 施設の旧 contact 列から FacilityContacts へ自動移行（必要な場合のみ）
   try { migrateFacilityContactsFromFacilities(); } catch (e) { Logger.log('[migrate][WARN] %s', e && e.message); }
@@ -458,6 +470,7 @@ function getFacilityContacts(params) {
       contactName: r[idx.contactName] || r[2],
       contactPhone: idx.contactPhone!=null ? r[idx.contactPhone] : '',
       contactNotes: idx.contactNotes!=null ? r[idx.contactNotes] : '',
+      cardFileId: idx.cardFileId!=null ? r[idx.cardFileId] : '',
       createdAt: r[idx.createdAt] || r[4],
       createdBy: r[idx.createdBy] || r[5]
     };
@@ -465,6 +478,72 @@ function getFacilityContacts(params) {
     list.push(item);
   }
   return list;
+}
+
+// 名刺画像アップロード用フォルダ取得/作成
+function getFacilityCardsFolder_() {
+  const name = 'FacilityContactCards';
+  const it = DriveApp.getFoldersByName(name);
+  if (it.hasNext()) return it.next();
+  return DriveApp.createFolder(name);
+}
+
+// 施設担当者の名刺画像をアップロードし、cardFileId を更新
+function uploadFacilityContactCard(data) {
+  if (!data || !data.contactId) throw new Error('contactId は必須です');
+  if (!data.dataUrl && !data.base64) throw new Error('画像データがありません');
+  let contentType = data.contentType || '';
+  let b64 = data.base64 || '';
+  if (data.dataUrl) {
+    const m = String(data.dataUrl).match(/^data:(.*?);base64,(.*)$/);
+    if (!m) throw new Error('dataUrl の形式が不正です');
+    contentType = contentType || m[1];
+    b64 = m[2];
+  }
+  if (!contentType) contentType = 'image/png';
+  const bytes = Utilities.base64Decode(b64);
+  const ext = (function(mt){
+    if (mt.indexOf('jpeg') !== -1 || mt.indexOf('jpg') !== -1) return '.jpg';
+    if (mt.indexOf('png') !== -1) return '.png';
+    if (mt.indexOf('gif') !== -1) return '.gif';
+    if (mt.indexOf('heic') !== -1) return '.heic';
+    return '';
+  })(contentType.toLowerCase());
+  const fname = (data.filename && String(data.filename).trim()) || ('card_' + data.contactId + '_' + Date.now() + ext);
+  const folder = getFacilityCardsFolder_();
+  const file = folder.createFile(Utilities.newBlob(bytes, contentType, fname));
+  try { file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (e) {}
+  const fileId = file.getId();
+
+  // シート更新
+  const ss = getSpreadsheet();
+  const sheet = ss.getSheetByName('FacilityContacts');
+  if (!sheet) throw new Error('FacilityContacts シートがありません');
+  const rows = sheet.getDataRange().getValues();
+  const headers = rows[0];
+  const idx = {}; headers.forEach((h,i)=> idx[h]=i);
+  // cardFileId 列が無ければ追加
+  if (idx.cardFileId == null) {
+    const notesIdx = headers.indexOf('contactNotes');
+    if (notesIdx !== -1) {
+      sheet.insertColumnAfter(notesIdx + 1);
+      sheet.getRange(1, notesIdx + 2).setValue('cardFileId');
+    } else {
+      sheet.insertColumnAfter(sheet.getLastColumn());
+      sheet.getRange(1, sheet.getLastColumn()).setValue('cardFileId');
+    }
+  }
+  // 再取得
+  const headers2 = sheet.getRange(1,1,1,sheet.getLastColumn()).getValues()[0];
+  const idx2 = {}; headers2.forEach((h,i)=> idx2[h]=i);
+  let target = -1;
+  for (let i = 1; i < rows.length; i++) {
+    const idVal = rows[i][idx.id || 0];
+    if (String(idVal) === String(data.contactId)) { target = i; break; }
+  }
+  if (target === -1) throw new Error('指定IDの担当者が見つかりません');
+  sheet.getRange(target+1, idx2.cardFileId+1).setValue(fileId);
+  return { fileId: fileId, viewUrl: 'https://drive.google.com/uc?export=view&id=' + fileId };
 }
 
 // 社員レコード追加

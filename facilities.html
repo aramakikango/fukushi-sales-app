@@ -104,7 +104,7 @@
           return hay.includes(kw);
         });
         if (!list || list.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="5">担当者はまだ登録されていません</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="6">担当者はまだ登録されていません</td></tr>';
           return;
         }
         let html = '';
@@ -113,9 +113,11 @@
                + '<td class="c-name">' + escapeHtml(c.contactName || '') + '</td>'
                + '<td class="c-phone">' + escapeHtml(c.contactPhone || '') + '</td>'
                + '<td class="c-notes">' + escapeHtml(c.contactNotes || '') + '</td>'
+               + '<td class="c-card">' + (c.cardFileId ? ('<img src="https://drive.google.com/uc?export=view&id=' + escapeHtml(c.cardFileId) + '" style="max-width:80px;max-height:60px;object-fit:cover;border:1px solid #ccc;">') : '未登録') + '</td>'
                + '<td>' + escapeHtml(c.createdAt || '') + '</td>'
                + '<td class="c-actions">'
                +   '<button type="button" onclick="editContact(\''+ c.id +'\')">編集</button> '
+               +   '<button type="button" onclick="triggerCardUpload(\''+ c.id +'\')">名刺画像</button> '
                +   '<button type="button" onclick="deleteContact(\''+ c.id +'\')">削除</button>'
                + '</td>'
                + '</tr>';
@@ -154,6 +156,32 @@
           const fid = document.getElementById('contactFacilitySelect').value;
           loadFacilityContacts(fid);
         }).deleteFacilityContact(id);
+      }
+
+      // 名刺画像アップロード処理
+      function triggerCardUpload(id) {
+        const input = document.getElementById('cardUploadInput');
+        if (!input) return;
+        input.dataset.contactId = id;
+        input.click();
+      }
+
+      function handleCardFileChange(ev) {
+        const input = ev.target;
+        const contactId = input.dataset.contactId;
+        if (!contactId || !input.files || !input.files.length) return;
+        const file = input.files[0];
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const dataUrl = e.target.result; // data:image/...;base64,...
+          google.script.run.withSuccessHandler(function(res){
+            const fid = document.getElementById('contactFacilitySelect').value;
+            loadFacilityContacts(fid);
+            alert('名刺画像をアップロードしました');
+          }).uploadFacilityContactCard({ contactId: contactId, dataUrl: dataUrl, filename: file.name });
+        };
+        reader.readAsDataURL(file);
+        input.value = '';
       }
 
       window.addEventListener('load', function() {
@@ -221,11 +249,14 @@
     <h3 style="margin-top:24px;">施設担当者一覧</h3>
     <table>
       <thead>
-        <tr><th>担当者名</th><th>電話</th><th>備考</th><th>登録日時</th></tr>
+        <tr><th>担当者名</th><th>電話</th><th>備考</th><th>名刺</th><th>登録日時</th><th></th></tr>
       </thead>
       <tbody id="facilityContactRows">
-        <tr><td colspan="4">施設を選択してください</td></tr>
+        <tr><td colspan="6">施設を選択してください</td></tr>
       </tbody>
     </table>
+
+    <!-- 名刺アップロード用の隠し input -->
+    <input id="cardUploadInput" type="file" accept="image/*" style="display:none" onchange="handleCardFileChange(event)">
   </body>
 </html>
