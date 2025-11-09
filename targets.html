@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+      body { font-family: Arial, sans-serif; padding: 24px; }
+      nav a { margin-right: 12px; display:inline-block; padding:6px 8px; }
+      h1 { margin-bottom: 16px; }
+      .filters { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
+      .filters > div { flex: 1 1 160px; min-width: 160px; }
+      label { font-size: 12px; display:block; margin-bottom:4px; color:#555; }
+      select, input { width:100%; padding:10px; box-sizing:border-box; }
+      table { width:100%; border-collapse: collapse; margin-top: 8px; }
+      th, td { border-bottom: 1px solid #eee; padding: 8px; text-align:left; vertical-align: top; }
+      th { background:#fafafa; }
+      .table-wrap { overflow-x:auto; }
+      .empty { padding:24px; text-align:center; color:#777; }
+      @media (max-width:650px){ body { padding:16px; } nav a { font-size:14px; margin-right:6px; } }
+    </style>
+    <script>
+      function escapeHtml(s){return (s||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+      function onPrefChange(){
+        const pref = document.getElementById('prefSelect').value;
+        const munSel = document.getElementById('munSelect');
+        munSel.innerHTML = '<option value="">市区町村読込中...</option>';
+        if (!pref){ munSel.innerHTML = '<option value="">-- 先に都道府県 --</option>'; updateResults(); return; }
+        google.script.run.withSuccessHandler(function(list){
+          munSel.innerHTML = '<option value="">全て</option>';
+          list.forEach(function(m){
+            const opt = document.createElement('option');
+            opt.value = m.municipality; opt.textContent = m.municipality;
+            munSel.appendChild(opt);
+          });
+          updateResults();
+        }).getMunicipalities({ prefecture: pref });
+      }
+
+      function updateResults(){
+        const params = {
+          prefecture: document.getElementById('prefSelect').value || '',
+          municipality: document.getElementById('munSelect').value || '',
+          facilityType: document.getElementById('typeSelect').value || '',
+          q: document.getElementById('kwInput').value || ''
+        };
+        // 空値を削除
+        Object.keys(params).forEach(k => { if (!params[k]) delete params[k]; });
+        const tbody = document.getElementById('resultRows');
+        tbody.innerHTML = '<tr><td colspan="6">検索中...</td></tr>';
+        google.script.run.withSuccessHandler(function(list){
+          if (!list.length){ tbody.innerHTML = '<tr><td colspan="6" class="empty">該当する営業先がありません</td></tr>'; return; }
+          let html='';
+          list.forEach(function(f){
+            html += '<tr>'
+              + '<td>'+escapeHtml(f.name)+'</td>'
+              + '<td>'+escapeHtml(f.prefecture||'')+'</td>'
+              + '<td>'+escapeHtml(f.municipality||'')+'</td>'
+              + '<td>'+escapeHtml(f.facilityType||'')+'</td>'
+              + '<td>'+escapeHtml(f.address||'')+'</td>'
+              + '<td>'+(f.phone?escapeHtml(f.phone):'')+'</td>'
+              + '</tr>';
+          });
+          tbody.innerHTML = html;
+        }).searchFacilities(params);
+      }
+
+      window.addEventListener('load', function(){
+        updateResults();
+      });
+    </script>
+  </head>
+  <body>
+    <nav>
+      <a href="<?= ScriptApp.getService().getUrl(); ?>?page=index">メニュー</a>
+      <a href="<?= ScriptApp.getService().getUrl(); ?>?page=facilities">施設登録</a>
+      <a href="<?= ScriptApp.getService().getUrl(); ?>?page=manage">施設・担当者管理</a>
+      <a href="<?= ScriptApp.getService().getUrl(); ?>?page=reports">営業報告</a>
+    </nav>
+    <h1>営業先検索</h1>
+    <div class="filters">
+      <div>
+        <label for="prefSelect">都道府県</label>
+        <select id="prefSelect" onchange="onPrefChange()">
+          <option value="">全て</option>
+          <option>東京都</option><option>神奈川県</option><option>千葉県</option><option>埼玉県</option><option>茨城県</option><option>栃木県</option><option>群馬県</option><option>山梨県</option>
+        </select>
+      </div>
+      <div>
+        <label for="munSelect">市区町村</label>
+        <select id="munSelect" onchange="updateResults()">
+          <option value="">全て</option>
+        </select>
+      </div>
+      <div>
+        <label for="typeSelect">事業所種類</label>
+        <select id="typeSelect" onchange="updateResults()">
+          <option value="">全て</option>
+          <optgroup label="高齢者系">
+            <option value="居宅介護支援">居宅介護支援</option>
+            <option value="訪問介護">訪問介護</option>
+            <option value="通所介護">通所介護</option>
+            <option value="訪問看護">訪問看護</option>
+            <option value="看護小規模多機能">看護小規模多機能</option>
+            <option value="特別養護老人ホーム">特別養護老人ホーム</option>
+            <option value="有料老人ホーム">有料老人ホーム</option>
+            <option value="サービス付高齢者住宅">サービス付高齢者住宅</option>
+          </optgroup>
+          <optgroup label="障害福祉（成人）">
+            <option value="就労移行支援">就労移行支援</option>
+            <option value="就労継続支援A型">就労継続支援A型</option>
+            <option value="就労継続支援B型">就労継続支援B型</option>
+            <option value="就労定着支援">就労定着支援</option>
+            <option value="生活介護">生活介護</option>
+            <option value="自立訓練（生活訓練）">自立訓練（生活訓練）</option>
+            <option value="自立訓練（機能訓練）">自立訓練（機能訓練）</option>
+            <option value="共同生活援助（グループホーム）">共同生活援助（グループホーム）</option>
+            <option value="短期入所（ショートステイ）">短期入所（ショートステイ）</option>
+            <option value="居宅介護（障害）">居宅介護（障害）</option>
+            <option value="重度訪問介護">重度訪問介護</option>
+            <option value="同行援護">同行援護</option>
+            <option value="行動援護">行動援護</option>
+            <option value="移動支援">移動支援</option>
+            <option value="施設入所支援">施設入所支援</option>
+          </optgroup>
+          <optgroup label="相談支援">
+            <option value="特定相談支援（計画相談）">特定相談支援（計画相談）</option>
+            <option value="障害児相談支援">障害児相談支援</option>
+          </optgroup>
+          <optgroup label="児童・療育">
+            <option value="児童発達支援">児童発達支援</option>
+            <option value="放課後等デイサービス">放課後等デイサービス</option>
+            <option value="保育所等訪問支援">保育所等訪問支援</option>
+            <option value="児童発達支援センター">児童発達支援センター</option>
+          </optgroup>
+          <optgroup label="その他・関連機関">
+            <option value="ケアマネ">ケアマネ</option>
+            <option value="医療機関">医療機関</option>
+            <option value="行政機関">行政機関</option>
+            <option value="その他">その他</option>
+          </optgroup>
+        </select>
+      </div>
+      <div>
+        <label for="kwInput">キーワード</label>
+        <input id="kwInput" type="text" placeholder="名称/住所/備考など" oninput="updateResults()">
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>施設名</th><th>都道府県</th><th>市区町村</th><th>種類</th><th>住所</th><th>電話</th></tr>
+        </thead>
+        <tbody id="resultRows"><tr><td colspan="6">読み込み中...</td></tr></tbody>
+      </table>
+    </div>
+  </body>
+</html>

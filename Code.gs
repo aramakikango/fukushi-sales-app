@@ -10,7 +10,7 @@ function getSpreadsheet() {
 // 不正な page の場合は index を返し、読み込みエラー時は簡易エラーページを返します。
 function doGet(e) {
   const page = (e && e.parameter && e.parameter.page) || 'index';
-  const allowed = ['index', 'facilities', 'visits', 'reports', 'employees'];
+  const allowed = ['index', 'facilities', 'visits', 'reports', 'employees', 'manage', 'targets'];
   Logger.log('[doGet] raw page param=%s', page);
   // 必要なシートが揃っているか確認（無ければ作成・マイグレーション）
   try { setupSheets(); } catch (err) { Logger.log('[setupSheets][WARN] %s', err && err.message); }
@@ -34,6 +34,99 @@ function doGet(e) {
       + '</body></html>'
     ).setTitle('表示エラー');
   }
+}
+
+// 施設検索（prefecture / municipality / facilityType / q）
+function searchFacilities(params) {
+  params = params || {};
+  const ss = getSpreadsheet();
+  const sheet = ss.getSheetByName('Facilities');
+  if (!sheet) return [];
+  const rows = sheet.getDataRange().getValues();
+  if (!rows.length) return [];
+  const headers = rows[0];
+  const idx = {}; headers.forEach((h,i)=> idx[h]=i);
+  const list = [];
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i];
+    const item = {
+      id: r[idx.id] || r[0],
+      name: r[idx.name] || r[1],
+      prefecture: idx.prefecture!=null ? r[idx.prefecture] : '',
+      municipality: idx.municipality!=null ? r[idx.municipality] : '',
+      facilityType: idx.facilityType!=null ? r[idx.facilityType] : '',
+      address: r[idx.address] != null ? r[idx.address] : r[2],
+      phone: r[idx.phone] != null ? r[idx.phone] : r[3],
+      notes: idx.notes!=null ? r[idx.notes] : ''
+    };
+    if (params.prefecture && item.prefecture !== params.prefecture) continue;
+    if (params.municipality && item.municipality !== params.municipality) continue;
+    if (params.facilityType && item.facilityType !== params.facilityType) continue;
+    if (params.q) {
+      const q = String(params.q).toLowerCase();
+      const hay = (item.name+' '+item.address+' '+(item.municipality||'')+' '+(item.notes||'')+' '+(item.facilityType||'')).toLowerCase();
+      if (!hay.includes(q)) continue;
+    }
+    list.push(item);
+  }
+  // 名前でソート
+  list.sort((a,b)=> String(a.name||'').localeCompare(String(b.name||'')));
+  return list;
+}
+
+// 施設更新（id 必須）
+function updateFacility(data) {
+  if (!data || !data.id) throw new Error('id は必須です');
+  const ss = getSpreadsheet();
+  const sheet = ss.getSheetByName('Facilities');
+  if (!sheet) throw new Error('Facilities シートが見つかりません');
+  const rows = sheet.getDataRange().getValues();
+  if (rows.length <= 1) throw new Error('更新対象がありません');
+  const headers = rows[0];
+  const idx = {}; headers.forEach((h,i)=> idx[h]=i);
+  let target = -1;
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][idx.id]) === String(data.id)) { target = i; break; }
+  }
+  if (target === -1) throw new Error('指定IDの施設が見つかりません');
+  const setters = ['name','prefecture','municipality','facilityType','address','phone','notes'];
+  setters.forEach(function(key){
+    if (data[key] != null && idx[key] != null) {
+      sheet.getRange(target+1, idx[key]+1).setValue(data[key]);
+    }
+  });
+  return { id: data.id };
+}
+
+// 施設削除（関連する FacilityContacts をカスケード削除）
+function deleteFacility(id) {
+  if (!id) throw new Error('id は必須です');
+  const ss = getSpreadsheet();
+  const fac = ss.getSheetByName('Facilities');
+  if (!fac) throw new Error('Facilities シートが見つかりません');
+  const fvals = fac.getDataRange().getValues();
+  const fheaders = fvals[0];
+  const fidx = {}; fheaders.forEach((h,i)=> fidx[h]=i);
+  let frow = -1;
+  for (let i = 1; i < fvals.length; i++) {
+    if (String(fvals[i][fidx.id]) === String(id)) { frow = i; break; }
+  }
+  if (frow === -1) throw new Error('指定IDの施設が見つかりません');
+  // 先に担当者を削除
+  const con = ss.getSheetByName('FacilityContacts');
+  if (con) {
+    const cvals = con.getDataRange().getValues();
+    const cheaders = cvals[0];
+    const cidx = {}; cheaders.forEach((h,i)=> cidx[h]=i);
+    for (let i = cvals.length - 1; i >= 1; i--) {
+      if (String(cvals[i][cidx.facilityId]) === String(id)) {
+        con.deleteRow(i + 1);
+      }
+    }
+  }
+  // 施設本体を削除
+  fac.deleteRow(frow + 1);
+  return { id: id };
 }
 
 // HTMLに埋め込む文字列をサニタイズ（XSS/表示崩れ防止）
@@ -135,12 +228,8 @@ function setupSheets() {
 }
 
 // Municipalities シートがヘッダのみなら関東（+山梨）の市区町村を投入
-function seedMunicipalitiesIfEmpty() {
-  const ss = getSpreadsheet();
-  const sheet = ss.getSheetByName('Municipalities');
-  if (!sheet) return;
-  if (sheet.getLastRow() > 1) return; // 既にデータあり
-  const dataMap = {
+function municipalitySeedMap_() {
+  return {
     '東京都': [
       '千代田区','中央区','港区','新宿区','文京区','台東区','墨田区','江東区','品川区','目黒区','大田区','世田谷区','渋谷区','中野区','杉並区','豊島区','北区','荒川区','板橋区','練馬区','足立区','葛飾区','江戸川区',
       '八王子市','立川市','武蔵野市','三鷹市','青梅市','府中市','昭島市','調布市','町田市','小金井市','小平市','日野市','東村山市','国分寺市','国立市','福生市','狛江市','東大和市','清瀬市','東久留米市','武蔵村山市','多摩市','稲城市','羽村市','あきる野市','西東京市',
@@ -213,6 +302,14 @@ function seedMunicipalitiesIfEmpty() {
       '北都留郡小菅村','北都留郡丹波山村'
     ]
   };
+}
+
+function seedMunicipalitiesIfEmpty() {
+  const ss = getSpreadsheet();
+  const sheet = ss.getSheetByName('Municipalities');
+  if (!sheet) return;
+  if (sheet.getLastRow() > 1) return; // 既にデータあり
+  const dataMap = municipalitySeedMap_();
   const rows = [];
   Object.keys(dataMap).forEach(pref => {
     dataMap[pref].forEach(m => rows.push([pref, m]));
@@ -221,6 +318,32 @@ function seedMunicipalitiesIfEmpty() {
     sheet.getRange(sheet.getLastRow()+1, 1, rows.length, 2).setValues(rows);
     Logger.log('[seedMunicipalities] %s 行を投入', rows.length);
   }
+}
+
+// 既存データに対して欠けている市区町村だけを追加（再試行用）
+function seedMunicipalitiesMerge() {
+  const ss = getSpreadsheet();
+  const sheet = ss.getSheetByName('Municipalities');
+  if (!sheet) throw new Error('Municipalities シートが見つかりません');
+  const current = sheet.getDataRange().getValues();
+  const set = new Set();
+  for (let i = 1; i < current.length; i++) {
+    const r = current[i];
+    if (!r[0] || !r[1]) continue;
+    set.add(String(r[0]) + '||' + String(r[1]));
+  }
+  const map = municipalitySeedMap_();
+  const rows = [];
+  Object.keys(map).forEach(pref => {
+    map[pref].forEach(m => {
+      const key = pref + '||' + m;
+      if (!set.has(key)) rows.push([pref, m]);
+    });
+  });
+  if (rows.length) {
+    sheet.getRange(sheet.getLastRow()+1, 1, rows.length, 2).setValues(rows);
+  }
+  return { inserted: rows.length };
 }
 
 // 市区町村マスタ取得（prefecture で絞り込み）
@@ -397,56 +520,102 @@ function getFacilities() {
 
 // 訪問記録追加
 function addVisit(data) {
-  if (!data || !data.facilityId) throw new Error('facilityId は必須です');
-  const ss = getSpreadsheet();
-  const sheet = ss.getSheetByName('Visits');
-  if (!sheet) throw new Error('Visits シートが見つかりません。setupSheets() を実行してください。');
-  const id = makeId('VIS');
-  const createdAt = nowIso();
-  const createdBy = activeUserEmail();
-  const visitDate = normalizeDate(data.visitDate, nowIso());
-  sheet.appendRow([
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  let sheet = ss.getSheetByName('Visits');
+  if (!sheet) {
+    sheet = ss.insertSheet('Visits');
+    const headers = ['id','facilityId','visitDate','visitType','visitorName','visitorRelation','diagnosis','disabilityCategory','wantsGroupHome','wantsHomeNursing','visitPurpose','staffName','notes','createdAt','createdBy'];
+    sheet.appendRow(headers);
+  }
+  // Ensure headers contain all required (簡易チェック)
+  const headers = sheet.getRange(1,1,1,sheet.getLastColumn()).getValues()[0];
+  const required = ['id','facilityId','visitDate','visitType','visitorName','visitorRelation','diagnosis','disabilityCategory','wantsGroupHome','wantsHomeNursing','visitPurpose','staffName','notes','createdAt','createdBy'];
+  required.forEach(function(h){
+    if (headers.indexOf(h) === -1) sheet.getRange(1, sheet.getLastColumn()+1).setValue(h);
+  });
+
+  const id = data.id || Utilities.getUuid();
+  const row = [
     id,
-    data.facilityId,
-    visitDate,
+    data.facilityId || '',
+    data.visitDate || new Date().toISOString(),
+    data.visitType || '',
     data.visitorName || '',
-    data.visitorEmail || '',
-    data.purpose || '',
+    data.visitorRelation || '',
+    data.diagnosis || '',
+    data.disabilityCategory || '',
+    data.wantsGroupHome ? 'TRUE' : '',
+    data.wantsHomeNursing ? 'TRUE' : '',
+    data.visitPurpose || '',
+    data.staffName || '',
     data.notes || '',
-    createdAt,
-    createdBy
-  ]);
-  return { id, createdAt };
+    new Date().toISOString(),
+    Session && Session.getActiveUser && Session.getActiveUser().getEmail ? (Session.getActiveUser().getEmail()) : ''
+  ];
+  sheet.appendRow(row);
+  return { id: id };
 }
 
-// 訪問記録一覧取得（facilityId / from / to で絞り込み可）
 function getVisits(params) {
   params = params || {};
-  const ss = getSpreadsheet();
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const sheet = ss.getSheetByName('Visits');
   if (!sheet) return [];
-  const rows = sheet.getDataRange().getValues();
-  const list = [];
-  for (let i = 1; i < rows.length; i++) {
-    const r = rows[i];
-    const item = {
-      id: r[0],
-      facilityId: r[1],
-      visitDate: r[2],
-      visitorName: r[3],
-      visitorEmail: r[4],
-      purpose: r[5],
-      notes: r[6],
-      createdAt: r[7],
-      createdBy: r[8]
-    };
-    if (params.facilityId && item.facilityId !== params.facilityId) continue;
-    if (params.from && item.visitDate < params.from) continue;
-    if (params.to && item.visitDate > params.to) continue;
-    list.push(item);
+  const values = sheet.getDataRange().getValues();
+  const headers = values.shift();
+  const rows = values.map(function(r){
+    const obj = {};
+    headers.forEach(function(h,i){ obj[h]=r[i]; });
+    return obj;
+  });
+  // フィルタ例
+  return rows.filter(function(r){
+    if (params.facilityId && String(r.facilityId) !== String(params.facilityId)) return false;
+    if (params.visitType && params.visitType !== '') {
+      if (String(r.visitType) !== String(params.visitType)) return false;
+    }
+    if (params.disabilityCategory && params.disabilityCategory !== '') {
+      if (!r.disabilityCategory || String(r.disabilityCategory) !== String(params.disabilityCategory)) return false;
+    }
+    return true;
+  });
+}
+
+// 施設の活動サマリー（訪問回数/最終訪問日、報告回数/最終報告日）
+function getFacilityActivitySummary(facilityId) {
+  if (!facilityId) return { visitCount: 0, lastVisitDate: '', reportCount: 0, lastReportDate: '' };
+  const ss = getSpreadsheet();
+  // Visits
+  let visitCount = 0, lastVisitDate = '';
+  const vs = ss.getSheetByName('Visits');
+  if (vs) {
+    const rows = vs.getDataRange().getValues();
+    for (let i = 1; i < rows.length; i++) {
+      if (String(rows[i][1]) === String(facilityId)) {
+        visitCount++;
+        const d = rows[i][2] || rows[i][7];
+        if (d && String(d) > String(lastVisitDate)) lastVisitDate = String(d);
+      }
+    }
   }
-  list.sort((a, b) => (b.visitDate || '').localeCompare(a.visitDate || ''));
-  return list;
+  // Reports
+  let reportCount = 0, lastReportDate = '';
+  const rs = ss.getSheetByName('Reports');
+  if (rs) {
+    const rows = rs.getDataRange().getValues();
+    const headers = rows[0] || [];
+    const idx = {}; headers.forEach((h,i)=> idx[h]=i);
+    for (let i = 1; i < rows.length; i++) {
+      const r = rows[i];
+      const fid = idx.facilityId != null ? r[idx.facilityId] : r[1];
+      if (String(fid) === String(facilityId)) {
+        reportCount++;
+        const d = (idx.reportDate != null ? r[idx.reportDate] : r[2]) || (idx.createdAt != null ? r[idx.createdAt] : r[8]);
+        if (d && String(d) > String(lastReportDate)) lastReportDate = String(d);
+      }
+    }
+  }
+  return { visitCount, lastVisitDate, reportCount, lastReportDate };
 }
 
 // 営業報告追加
@@ -494,6 +663,16 @@ function addReport(data) {
         sheet.getRange(1, sheet.getLastColumn()).setValue('contactName');
       }
     }
+    // フォローアップ強化用の列を追加
+    let h2 = sheet.getRange(1,1,1,sheet.getLastColumn()).getValues()[0];
+    const need = ['nextAction','nextActionDate','nextActionOwner','priority','statusStage','reminderFlag'];
+    need.forEach(function(col){
+      if (h2.indexOf(col) === -1) {
+        sheet.insertColumnAfter(sheet.getLastColumn());
+        sheet.getRange(1, sheet.getLastColumn()).setValue(col);
+        h2 = sheet.getRange(1,1,1,sheet.getLastColumn()).getValues()[0];
+      }
+    });
   };
   ensureHeaders();
   const headers = sheet.getRange(1,1,1,sheet.getLastColumn()).getValues()[0];
@@ -511,6 +690,12 @@ function addReport(data) {
   set('followUp', data.followUp || '');
   set('contactId', data.contactId || '');
   set('contactName', data.contactName || '');
+  set('nextAction', data.nextAction || '');
+  set('nextActionDate', data.nextActionDate || '');
+  set('nextActionOwner', data.nextActionOwner || '');
+  set('priority', data.priority || '');
+  set('statusStage', data.statusStage || '');
+  set('reminderFlag', data.reminderFlag ? '1' : '');
   set('createdAt', createdAt);
   set('createdBy', createdBy);
   sheet.appendRow(row);
@@ -544,7 +729,13 @@ function getReports(params) {
       createdAt: r[idx.createdAt] || r[8],
       createdBy: r[idx.createdBy] || r[9],
       contactId: idx.contactId != null ? r[idx.contactId] : '',
-      contactName: idx.contactName != null ? r[idx.contactName] : ''
+      contactName: idx.contactName != null ? r[idx.contactName] : '',
+      nextAction: idx.nextAction != null ? r[idx.nextAction] : '',
+      nextActionDate: idx.nextActionDate != null ? r[idx.nextActionDate] : '',
+      nextActionOwner: idx.nextActionOwner != null ? r[idx.nextActionOwner] : '',
+      priority: idx.priority != null ? r[idx.priority] : '',
+      statusStage: idx.statusStage != null ? r[idx.statusStage] : '',
+      reminderFlag: idx.reminderFlag != null ? r[idx.reminderFlag] : ''
     };
     if (params.facilityId && item.facilityId !== params.facilityId) continue;
     if (params.from && item.reportDate < params.from) continue;

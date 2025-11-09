@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <style>
+      body { font-family: Arial, sans-serif; padding: 24px; }
+      nav a { margin-right: 12px; }
+      input, select, textarea { padding: 6px; }
+      table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+      th, td { border-bottom: 1px solid #eee; padding: 8px; text-align: left; }
+      .row-actions button { margin-right: 6px; }
+      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+      @media (max-width: 1000px) { .grid { grid-template-columns: 1fr; } }
+      .muted { color: #666; font-size: 12px; }
+      .flex { display: flex; gap: 8px; align-items: center; }
+    </style>
+    <script>
+      // 施設一覧の管理
+      function loadFacilitiesForManage() {
+        const tbody = document.getElementById('facManageRows');
+        tbody.innerHTML = '<tr><td colspan="8">読み込み中...</td></tr>';
+        google.script.run.withSuccessHandler(function(list){
+          window._facList = list || [];
+          renderFacilityRows();
+        }).getFacilities();
+      }
+      function renderFacilityRows() {
+        const tbody = document.getElementById('facManageRows');
+        const kw = (document.getElementById('facFilterKw').value || '').toLowerCase();
+        const pref = document.getElementById('facFilterPref').value || '';
+        const type = document.getElementById('facFilterType').value || '';
+        const list = (window._facList || []).filter(function(f){
+          if (pref && f.prefecture !== pref) return false;
+          if (type && f.facilityType !== type) return false;
+          if (kw) {
+            const hay = (f.name+' '+(f.address||'')+' '+(f.municipality||'')+' '+(f.notes||'')).toLowerCase();
+            if (!hay.includes(kw)) return false;
+          }
+          return true;
+        });
+        if (!list.length) { tbody.innerHTML = '<tr><td colspan="8">該当データがありません</td></tr>'; return; }
+        let html = '';
+        list.forEach(function(f){
+          html += '<tr id="frow-'+f.id+'">'
+            +'<td>'+escapeHtml(f.name)+'</td>'
+            +'<td>'+escapeHtml(f.prefecture||'')+'</td>'
+            +'<td>'+escapeHtml(f.municipality||'')+'</td>'
+            +'<td>'+escapeHtml(f.facilityType||'')+'</td>'
+            +'<td>'+escapeHtml(f.address||'')+'</td>'
+            +'<td>'+escapeHtml(f.phone||'')+'</td>'
+            +'<td class="row-actions">'
+            +  '<button onclick="editFacility(\''+f.id+'\')">編集</button>'
+            +  '<button onclick="openContactsPanel(\''+f.id+'\', \''+encodeURIComponent(f.name)+'\')">担当者</button>'
+            +  '<button onclick="deleteFacilityReq(\''+f.id+'\')">削除</button>'
+            +'</td>'
+            +'</tr>';
+        });
+        tbody.innerHTML = html;
+      }
+      function escapeHtml(s){return (s||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+      function deleteFacilityReq(id){
+        if (!confirm('施設を削除します。担当者も全て削除されます。よろしいですか？')) return;
+        google.script.run.withSuccessHandler(function(){
+          loadFacilitiesForManage();
+          if (document.getElementById('contactsFacilityId').value === id) {
+            document.getElementById('contactsPanel').style.display = 'none';
+          }
+        }).deleteFacility(id);
+      }
+      function editFacility(id){
+        const tr = document.getElementById('frow-'+id);
+        if (!tr) return;
+        const tds = tr.querySelectorAll('td');
+        const name = tds[0].textContent; const pref = tds[1].textContent; const mun = tds[2].textContent; const type = tds[3].textContent; const addr = tds[4].textContent; const phone = tds[5].textContent;
+        tds[0].innerHTML = '<input id="e-name-'+id+'" value="'+name.replace(/"/g,'&quot;')+'">';
+        tds[1].innerHTML = '<input id="e-pref-'+id+'" value="'+pref.replace(/"/g,'&quot;')+'">';
+        tds[2].innerHTML = '<input id="e-mun-'+id+'" value="'+mun.replace(/"/g,'&quot;')+'">';
+        tds[3].innerHTML = '<input id="e-type-'+id+'" value="'+type.replace(/"/g,'&quot;')+'">';
+        tds[4].innerHTML = '<input id="e-addr-'+id+'" value="'+addr.replace(/"/g,'&quot;')+'">';
+        tds[5].innerHTML = '<input id="e-phone-'+id+'" value="'+phone.replace(/"/g,'&quot;')+'">';
+        tds[6].innerHTML = '<button onclick="saveFacility(\''+id+'\')">保存</button> <button onclick="loadFacilitiesForManage()">キャンセル</button>';
+      }
+      function saveFacility(id){
+        const data = {
+          id: id,
+          name: document.getElementById('e-name-'+id).value,
+          prefecture: document.getElementById('e-pref-'+id).value,
+          municipality: document.getElementById('e-mun-'+id).value,
+          facilityType: document.getElementById('e-type-'+id).value,
+          address: document.getElementById('e-addr-'+id).value,
+          phone: document.getElementById('e-phone-'+id).value,
+        };
+        if (!data.name) { alert('施設名は必須です'); return; }
+        google.script.run.withSuccessHandler(function(){
+          loadFacilitiesForManage();
+        }).updateFacility(data);
+      }
+
+      // 担当者パネル
+      function openContactsPanel(facilityId, encodedName){
+        document.getElementById('contactsPanel').style.display = 'block';
+        document.getElementById('contactsFacilityId').value = facilityId;
+        document.getElementById('contactsFacilityName').textContent = decodeURIComponent(encodedName);
+        loadContacts(facilityId);
+      }
+      function loadContacts(facilityId){
+        const tbody = document.getElementById('contactsRows');
+        tbody.innerHTML = '<tr><td colspan="6">読み込み中...</td></tr>';
+        google.script.run.withSuccessHandler(function(list){
+          window._contactsCacheManage = list || [];
+          renderContacts();
+        }).getFacilityContacts({ facilityId: facilityId });
+      }
+      function renderContacts(){
+        const tbody = document.getElementById('contactsRows');
+        const kw = (document.getElementById('contactsFilter').value || '').toLowerCase();
+        const list = (window._contactsCacheManage || []).filter(function(c){
+          if (!kw) return true;
+          const hay = ((c.contactName||'')+' '+(c.contactNotes||'')).toLowerCase();
+          return hay.includes(kw);
+        });
+        if (!list.length) { tbody.innerHTML = '<tr><td colspan="6">担当者がいません</td></tr>'; return; }
+        let html = '';
+        list.forEach(function(c){
+          html += '<tr id="crow-'+c.id+'">'
+           + '<td class="c-name">'+escapeHtml(c.contactName||'')+'</td>'
+           + '<td class="c-phone">'+escapeHtml(c.contactPhone||'')+'</td>'
+           + '<td class="c-notes">'+escapeHtml(c.contactNotes||'')+'</td>'
+           + '<td>'+(c.cardFileId ? ('<img src="https://drive.google.com/uc?export=view&id='+escapeHtml(c.cardFileId)+'" style="max-width:80px;max-height:60px;object-fit:cover;border:1px solid #ccc;">') : '—')+'</td>'
+           + '<td>'+escapeHtml(c.createdAt||'')+'</td>'
+           + '<td>'
+           +   '<button onclick="editContactM(\''+c.id+'\')">編集</button> '
+           +   '<button onclick="triggerCardUploadM(\''+c.id+'\')">名刺</button> '
+           +   '<button onclick="deleteContactM(\''+c.id+'\')">削除</button>'
+           + '</td>'
+           + '</tr>';
+        });
+        tbody.innerHTML = html;
+      }
+      function addContactM(){
+        const fid = document.getElementById('contactsFacilityId').value;
+        const name = document.getElementById('m-contactName').value.trim();
+        const phone = document.getElementById('m-contactPhone').value.trim();
+        const notes = document.getElementById('m-contactNotes').value.trim();
+        if (!fid) { alert('施設が選択されていません'); return; }
+        if (!name) { alert('担当者名を入力してください'); return; }
+        google.script.run.withSuccessHandler(function(){
+          document.getElementById('m-contactName').value = '';
+          document.getElementById('m-contactPhone').value = '';
+          document.getElementById('m-contactNotes').value = '';
+          loadContacts(fid);
+        }).addFacilityContact({ facilityId: fid, contactName: name, contactPhone: phone, contactNotes: notes });
+      }
+      function editContactM(id){
+        const tr = document.getElementById('crow-'+id);
+        if (!tr) return;
+        const name = tr.querySelector('.c-name').textContent;
+        const phone = tr.querySelector('.c-phone').textContent;
+        const notes = tr.querySelector('.c-notes').textContent;
+        tr.querySelector('.c-name').innerHTML = '<input id="ce-name-'+id+'" value="'+name.replace(/"/g,'&quot;')+'">';
+        tr.querySelector('.c-phone').innerHTML = '<input id="ce-phone-'+id+'" value="'+phone.replace(/"/g,'&quot;')+'">';
+        tr.querySelector('.c-notes').innerHTML = '<textarea id="ce-notes-'+id+'" rows="2">'+notes.replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</textarea>';
+        tr.querySelector('td:last-child').innerHTML = '<button onclick="saveContactM(\''+id+'\')">保存</button> <button onclick="loadContacts(document.getElementById(\'contactsFacilityId\').value)">キャンセル</button>';
+      }
+      function saveContactM(id){
+        const name = document.getElementById('ce-name-'+id).value.trim();
+        const phone = document.getElementById('ce-phone-'+id).value.trim();
+        const notes = document.getElementById('ce-notes-'+id).value.trim();
+        if (!name) { alert('担当者名は必須です'); return; }
+        google.script.run.withSuccessHandler(function(){
+          const fid = document.getElementById('contactsFacilityId').value;
+          loadContacts(fid);
+        }).updateFacilityContact({ id: id, contactName: name, contactPhone: phone, contactNotes: notes });
+      }
+      function deleteContactM(id){
+        if (!confirm('担当者を削除します。よろしいですか？')) return;
+        google.script.run.withSuccessHandler(function(){
+          const fid = document.getElementById('contactsFacilityId').value;
+          loadContacts(fid);
+        }).deleteFacilityContact(id);
+      }
+      function triggerCardUploadM(id){
+        const input = document.getElementById('m-cardUpload');
+        input.dataset.contactId = id;
+        input.click();
+      }
+      function handleCardFileChangeM(ev){
+        const input = ev.target;
+        const contactId = input.dataset.contactId;
+        if (!contactId || !input.files || !input.files.length) return;
+        const file = input.files[0];
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const dataUrl = e.target.result;
+          google.script.run.withSuccessHandler(function(){
+            const fid = document.getElementById('contactsFacilityId').value;
+            loadContacts(fid);
+          }).uploadFacilityContactCard({ contactId: contactId, dataUrl: dataUrl, filename: file.name });
+        };
+        reader.readAsDataURL(file);
+        input.value = '';
+      }
+
+      window.addEventListener('load', function(){
+        loadFacilitiesForManage();
+      });
+    </script>
+  </head>
+  <body>
+    <nav>
+      <a href="<?= ScriptApp.getService().getUrl(); ?>?page=index">メニュー</a>
+      <a href="<?= ScriptApp.getService().getUrl(); ?>?page=facilities">施設登録</a>
+      <a href="<?= ScriptApp.getService().getUrl(); ?>?page=reports">営業報告</a>
+      <a href="<?= ScriptApp.getService().getUrl(); ?>?page=employees">社員</a>
+    </nav>
+
+    <h1>施設・担当者 管理</h1>
+    <div class="grid">
+      <section>
+        <h2>施設一覧</h2>
+        <div class="flex" style="margin-bottom:8px;">
+          <input id="facFilterKw" type="text" placeholder="キーワード（施設名・住所・市区町村・備考）" oninput="renderFacilityRows()" style="flex:1;">
+          <select id="facFilterPref" onchange="renderFacilityRows()">
+            <option value="">都道府県</option>
+            <option>東京都</option><option>神奈川県</option><option>千葉県</option><option>埼玉県</option><option>茨城県</option><option>栃木県</option><option>群馬県</option><option>山梨県</option>
+          </select>
+          <input id="facFilterType" placeholder="種類で絞り込み（完全一致）" oninput="renderFacilityRows()" />
+        </div>
+        <table>
+          <thead><tr><th>施設名</th><th>都道府県</th><th>市区町村</th><th>種類</th><th>住所</th><th>電話</th><th></th></tr></thead>
+          <tbody id="facManageRows"><tr><td colspan="8">読み込み中...</td></tr></tbody>
+        </table>
+      </section>
+      <section>
+        <h2>担当者</h2>
+        <div id="contactsPanel" style="display:none;">
+          <div class="muted">施設: <span id="contactsFacilityName"></span></div>
+          <input type="hidden" id="contactsFacilityId" />
+          <div style="margin-top:8px;">
+            <input id="m-contactName" placeholder="担当者名"> 
+            <input id="m-contactPhone" placeholder="電話">
+            <input id="m-contactNotes" placeholder="備考">
+            <button onclick="addContactM()">追加</button>
+          </div>
+          <div style="margin-top:8px;">
+            <input id="contactsFilter" type="text" placeholder="担当者フィルタ（氏名・備考）" oninput="renderContacts()">
+          </div>
+          <table>
+            <thead><tr><th>氏名</th><th>電話</th><th>備考</th><th>名刺</th><th>登録日時</th><th></th></tr></thead>
+            <tbody id="contactsRows"><tr><td colspan="6">施設を選択してください</td></tr></tbody>
+          </table>
+        </div>
+        <div id="contactsPlaceholder" class="muted" style="margin-top:8px;">左の一覧から「担当者」ボタンで施設を選択してください。</div>
+      </section>
+    </div>
+
+    <!-- 名刺アップロード hidden input -->
+    <input id="m-cardUpload" type="file" accept="image/*" style="display:none" onchange="handleCardFileChangeM(event)">
+  </body>
+</html>

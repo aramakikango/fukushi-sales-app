@@ -11,21 +11,60 @@
       table { width: 100%; border-collapse: collapse; margin-top: 24px; }
       th, td { border-bottom: 1px solid #eee; padding: 8px; text-align: left; vertical-align: top; }
       h2 { margin-top: 28px; }
+      .muted { color:#666; font-size:12px; }
+      .grid2 { display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+      .digest-wrap { margin-top: 8px; }
+      .digest-cards { display:grid; grid-template-columns: repeat(5, 1fr); gap:8px; }
+      .digest-card { border:1px solid #eee; border-radius:6px; padding:8px; font-size:12px; background:#fafafa; }
+      .digest-card .title { font-weight:bold; font-size:12px; margin-bottom:4px; }
+      .digest-card .meta { color:#555; margin-bottom:4px; }
+      @media (max-width: 900px) { .digest-cards { grid-template-columns: repeat(2, 1fr); } }
+      @media (max-width: 520px) { .digest-cards { grid-template-columns: 1fr; } }
+      @media (max-width: 720px) { .grid2 { grid-template-columns: 1fr; } }
     </style>
     <script>
+      // 取得した営業報告の簡易キャッシュ（コピーに使用）
+      let REPORT_CACHE = {};
+      function nowForDatetimeLocal() {
+        const d = new Date();
+        const pad = (n) => String(n).padStart(2,'0');
+        const yyyy = d.getFullYear();
+        const MM = pad(d.getMonth()+1);
+        const dd = pad(d.getDate());
+        const hh = pad(d.getHours());
+        const mm = pad(d.getMinutes());
+        return `${yyyy}-${MM}-${dd}T${hh}:${mm}`;
+      }
       function submitReport() {
         const facilityId = document.getElementById('reportFacility').value;
         const reporterSelect = document.getElementById('reporterSelect');
         const reporterName = reporterSelect && reporterSelect.value ? reporterSelect.options[reporterSelect.selectedIndex].text : '';
   const contactSelect = document.getElementById('contactSelect');
   const contactId = contactSelect && contactSelect.value ? contactSelect.value : '';
-  const contactName = contactSelect && contactSelect.value ? contactSelect.options[contactSelect.selectedIndex].text : '';
+  let contactName = '';
+  if (document.getElementById('unknownContactChk').checked) {
+    contactName = '不明';
+  } else {
+    contactName = contactSelect && contactSelect.value ? contactSelect.options[contactSelect.selectedIndex].text : '';
+  }
         const channelSelect = document.getElementById('channelSelect');
         let channel = channelSelect.value;
         if (channel === 'その他') {
           const other = document.getElementById('channelOther').value.trim();
           if (!other) { alert('その他の詳細を入力してください'); return; }
           channel = 'その他:' + other;
+        }
+        // 次アクション（セレクト + その他詳細）
+        let nextActionValue = '';
+        const nextActionSelect = document.getElementById('nextActionSelect');
+        if (nextActionSelect) {
+          if (nextActionSelect.value === 'その他') {
+            const manual = document.getElementById('nextActionManual').value.trim();
+            if (!manual) { alert('次にやることの「その他」詳細を入力してください'); return; }
+            nextActionValue = 'その他:' + manual;
+          } else {
+            nextActionValue = nextActionSelect.value || '';
+          }
         }
         const data = {
           facilityId: facilityId,
@@ -37,12 +76,22 @@
           contactName: contactName,
           summary: document.getElementById('summary').value,
           details: document.getElementById('details').value,
-          followUp: document.getElementById('followUp').value
+          followUp: document.getElementById('followUp').value,
+          nextAction: nextActionValue,
+          nextActionDate: document.getElementById('nextActionDate').value,
+          nextActionOwner: document.getElementById('nextActionOwner').value,
+          priority: document.getElementById('priority').value,
+          statusStage: document.getElementById('statusStage').value,
+          reminderFlag: document.getElementById('reminderFlag').checked
         };
         if (!data.facilityId) { alert('施設を選択してください'); return; }
         if (!data.summary) { alert('要約を入力してください'); return; }
         if (!reporterName) { alert('報告者を選択してください'); return; }
         if (!channelSelect.value) { alert('報告方法を選択してください'); return; }
+        if (!nextActionValue && document.getElementById('statusStage').value && document.getElementById('nextActionSelect').options.length > 1) {
+          // ステージが選択されているのに未選択なら注意（必須にはしないが促す）
+          if (!confirm('次にやることが未選択です。空のままで登録しますか？')) return;
+        }
         google.script.run.withSuccessHandler(function() {
           alert('営業報告を登録しました');
           document.getElementById('reportForm').reset();
@@ -52,6 +101,13 @@
           if (channelSelect) channelSelect.selectedIndex = 0;
           if (contactSelect) contactSelect.selectedIndex = 0;
           document.getElementById('channelOtherWrap').style.display = 'none';
+          // 追加フィールドもリセット
+          resetNextActionSelect();
+          document.getElementById('nextActionDate').value = '';
+          document.getElementById('nextActionOwner').value = '';
+          document.getElementById('priority').selectedIndex = 0;
+          document.getElementById('statusStage').selectedIndex = 0;
+          document.getElementById('reminderFlag').checked = false;
         }).addReport(data);
       }
 
@@ -63,6 +119,7 @@
             const opt = document.createElement('option');
             opt.value = f.id;
             opt.textContent = f.name + (f.address ? ' — ' + f.address : '');
+            if (f.facilityType) opt.setAttribute('data-facility-type', f.facilityType);
             select.appendChild(opt);
           });
         }).getFacilities();
@@ -71,24 +128,43 @@
       function loadReports(facilityId) {
         if (!facilityId) {
           document.getElementById('reportRows').innerHTML = '<tr><td colspan="6">施設を選択してください</td></tr>';
+          document.getElementById('activityBox').innerHTML = '';
+          renderRecentDigest([]);
           return;
         }
+        // 活動サマリー
+        google.script.run.withSuccessHandler(function(s){
+          const box = document.getElementById('activityBox');
+          if (!s) { box.innerHTML = ''; return; }
+          const lastV = s.lastVisitDate ? new Date(s.lastVisitDate).toLocaleString() : '-';
+          const lastR = s.lastReportDate ? new Date(s.lastReportDate).toLocaleString() : '-';
+          box.innerHTML = '訪問回数: <b>'+ (s.visitCount||0) +'</b>（最終: '+ lastV +'） / 報告回数: <b>'+ (s.reportCount||0) +'</b>（最終: '+ lastR +'）';
+        }).getFacilityActivitySummary(facilityId);
         google.script.run.withSuccessHandler(function(list) {
           const tbody = document.getElementById('reportRows');
           if (!list || list.length === 0) {
             tbody.innerHTML = '<tr><td colspan="6">営業報告はありません</td></tr>';
+            renderRecentDigest([]);
             return;
           }
+          REPORT_CACHE = {};
           let html = '';
           list.forEach(function(r) {
+      REPORT_CACHE[r.id] = r;
       html += '<tr><td>' + escapeHtml(r.reportDate || r.createdAt) + '</td>' +
                     '<td>' + escapeHtml(r.channel || '') + '</td>' +
                     '<td>' + escapeHtml(r.summary) + '</td>' +
                     '<td>' + escapeHtml(r.contactName || '') + '</td>' +
                     '<td>' + escapeHtml(r.reporterName || r.createdBy || '') + '</td>' +
-                    '<td>' + escapeHtml(r.details || '') + '<br><em>' + escapeHtml(r.followUp || '') + '</em></td></tr>';
+                    '<td>' + escapeHtml(r.details || '')
+                        + (r.followUp ? ('<br><em>Follow: ' + escapeHtml(r.followUp) + '</em>') : '')
+                        + (r.nextAction ? ('<div class="muted">次: ' + escapeHtml(r.nextAction) + (r.nextActionDate? ('（' + escapeHtml(r.nextActionDate) + '）') : '') + '</div>') : '')
+                        + (r.statusStage || r.priority ? ('<div class="muted">' + escapeHtml(r.statusStage||'') + (r.priority? (' / ' + escapeHtml(r.priority)) : '') + (r.nextActionOwner? (' / ' + escapeHtml(r.nextActionOwner)) : '') + '</div>') : '')
+                        + '<div style="margin-top:6px;"><button type="button" onclick="copyReport(\'' + String(r.id).replace(/'/g,"&#39;") + '\')">コピー</button></div>'
+                        + '</td></tr>';
           });
           tbody.innerHTML = html;
+          renderRecentDigest(list);
         }).getReports({ facilityId: facilityId });
       }
 
@@ -108,16 +184,28 @@
             opt.textContent = emp.name || '';
             sel.appendChild(opt);
           });
+          // 次アクション担当（オーナー）にも同じ候補を入れる
+          const ownerSel = document.getElementById('nextActionOwner');
+          if (ownerSel) {
+            ownerSel.innerHTML = '<option value="">未指定</option>';
+            list.forEach(function(emp){
+              const o = document.createElement('option'); o.value = emp.name || ''; o.textContent = emp.name || ''; ownerSel.appendChild(o);
+            });
+          }
         }).getEmployees();
       }
 
-      function loadContactsForFacility(facilityId) {
+      function loadContactsForFacility(facilityId, selectedId) {
         const sel = document.getElementById('contactSelect');
         if (!sel) return;
         sel.innerHTML = '<option value="">-- 担当者を選択 --</option>';
         sel.disabled = true;
         const infoBox = document.getElementById('contactInfoBox');
         if (infoBox) infoBox.textContent = '';
+        // 施設選択時でも自動では表示しない（追加ボタンで開閉）
+        const newPanel = document.getElementById('newContactPanel');
+        if (newPanel) newPanel.style.display = 'none';
+        resetNewContactPanelFields();
         if (!facilityId) return;
         google.script.run.withSuccessHandler(function(list) {
           list.forEach(function(c) {
@@ -128,6 +216,10 @@
             sel.appendChild(opt);
           });
           sel.disabled = false;
+          if (selectedId) {
+            sel.value = selectedId;
+            showSelectedContactNotes();
+          }
         }).getFacilityContacts({ facilityId: facilityId });
       }
       function showSelectedContactNotes() {
@@ -138,6 +230,9 @@
         if (!opt || !opt.value) { infoBox.textContent = ''; return; }
         const notes = opt.getAttribute('data-notes') || '';
         infoBox.textContent = notes ? ('備考: ' + notes) : '';
+        // 担当者を選んだら「担当者不明」は自動で外す
+        const unk = document.getElementById('unknownContactChk');
+        if (unk) unk.checked = false;
       }
 
       window.addEventListener('load', function() {
@@ -146,6 +241,7 @@
         document.getElementById('reportFacility').addEventListener('change', function() {
           loadReports(this.value);
           loadContactsForFacility(this.value);
+          rebuildNextActionOptions();
         });
           document.getElementById('contactSelect').addEventListener('change', showSelectedContactNotes);
         document.getElementById('channelSelect').addEventListener('change', function(){
@@ -156,7 +252,251 @@
             document.getElementById('channelOther').value = '';
           }
         });
+        document.getElementById('statusStage').addEventListener('change', function(){
+          rebuildNextActionOptions();
+        });
+        document.getElementById('nextActionSelect').addEventListener('change', function(){
+          if (this.value === 'その他') {
+            document.getElementById('nextActionManualWrap').style.display = 'block';
+          } else {
+            document.getElementById('nextActionManualWrap').style.display = 'none';
+            document.getElementById('nextActionManual').value = '';
+          }
+        });
+        rebuildNextActionOptions();
       });
+
+      // 営業報告画面から担当者を新規追加
+      function addContactFromReport() {
+        const facilityId = document.getElementById('reportFacility').value;
+        if (!facilityId) { alert('先に施設を選択してください'); return; }
+        const name = document.getElementById('newContactName').value.trim();
+        const phone = document.getElementById('newContactPhone').value.trim();
+        const notes = document.getElementById('newContactNotes').value.trim();
+        if (!name) { alert('担当者名を入力してください（不明の場合は上のチェックを使えます）'); return; }
+        const fileInput = document.getElementById('newContactCardFile');
+        const hasFile = fileInput && fileInput.files && fileInput.files[0];
+        google.script.run.withSuccessHandler(function(res){
+          const newId = res && res.id;
+          const afterReload = function(){
+            toggleNewContactPanel(false);
+            resetNewContactPanelFields();
+            loadContactsForFacility(facilityId, newId);
+          };
+          if (hasFile && newId) {
+            const reader = new FileReader();
+            reader.onload = function(ev){
+              google.script.run.withSuccessHandler(function(){
+                afterReload();
+              }).uploadFacilityContactCard({ contactId: newId, dataUrl: ev.target.result });
+            };
+            reader.readAsDataURL(fileInput.files[0]);
+          } else {
+            afterReload();
+          }
+        }).addFacilityContact({ facilityId: facilityId, contactName: name, contactPhone: phone, contactNotes: notes });
+      }
+      function toggleNewContactPanel(force) {
+        const facilityId = document.getElementById('reportFacility').value;
+        if (!facilityId) { alert('先に施設を選択してください'); return; }
+        const panel = document.getElementById('newContactPanel');
+        if (!panel) return;
+        if (typeof force === 'boolean') {
+          panel.style.display = force ? 'block' : 'none';
+        } else {
+          panel.style.display = (panel.style.display === 'none' || !panel.style.display) ? 'block' : 'none';
+        }
+      }
+      function resetNewContactPanelFields() {
+        const a = id => { const el = document.getElementById(id); if (el) el.value=''; };
+        a('newContactName'); a('newContactPhone'); a('newContactNotes'); a('newContactCardFile');
+        const wrap = document.getElementById('newContactCardPreviewWrap'); if (wrap) wrap.style.display='none';
+        const img = document.getElementById('newContactCardPreview'); if (img) img.src='';
+      }
+      function previewNewContactCard() {
+        const input = document.getElementById('newContactCardFile');
+        const wrap = document.getElementById('newContactCardPreviewWrap');
+        const img = document.getElementById('newContactCardPreview');
+        if (!input || !input.files || !input.files[0]) { if (wrap) wrap.style.display='none'; return; }
+        const reader = new FileReader();
+        reader.onload = function(e){ if (img) img.src = e.target.result; if (wrap) wrap.style.display='block'; };
+        reader.readAsDataURL(input.files[0]);
+      }
+
+      // 既存の営業報告からフォームへ値をコピー
+      function copyReport(id) {
+        const r = REPORT_CACHE && REPORT_CACHE[id];
+        if (!r) { alert('コピー対象のレコードが見つかりません'); return; }
+        // チャンネル
+        const chSel = document.getElementById('channelSelect');
+        if (r.channel && chSel) {
+          if (String(r.channel).startsWith('その他:')) {
+            chSel.value = 'その他';
+            document.getElementById('channelOtherWrap').style.display = 'block';
+            document.getElementById('channelOther').value = String(r.channel).replace(/^その他:/,'');
+          } else {
+            chSel.value = r.channel;
+            document.getElementById('channelOtherWrap').style.display = 'none';
+            document.getElementById('channelOther').value = '';
+          }
+        }
+        // 担当者
+        const contactSel = document.getElementById('contactSelect');
+        const unknownChk = document.getElementById('unknownContactChk');
+        if (unknownChk) unknownChk.checked = (r.contactName === '不明');
+        if (contactSel && !unknownChk.checked) {
+          let set = false;
+          if (r.contactId) {
+            contactSel.value = r.contactId;
+            set = (contactSel.value === r.contactId);
+          }
+          if (!set && r.contactName) {
+            for (let i=0;i<contactSel.options.length;i++) {
+              if (contactSel.options[i].text === r.contactName) { contactSel.selectedIndex = i; set = true; break; }
+            }
+          }
+          if (!set) contactSel.selectedIndex = 0;
+          showSelectedContactNotes();
+        }
+        // 報告者（社員）
+        const repSel = document.getElementById('reporterSelect');
+        if (repSel && r.reporterName) {
+          for (let i=0;i<repSel.options.length;i++) {
+            if (repSel.options[i].text === r.reporterName) { repSel.selectedIndex = i; break; }
+          }
+        }
+        // 要約・詳細・フォロー
+        document.getElementById('summary').value = r.summary || '';
+        document.getElementById('details').value = r.details || '';
+        document.getElementById('followUp').value = r.followUp || '';
+        // ステージ・優先度・オーナー・リマインド
+        const stSel = document.getElementById('statusStage');
+        if (stSel) {
+          stSel.value = r.statusStage || '';
+          rebuildNextActionOptions(); // ステージに合わせて候補を更新
+        }
+        const ownerSel = document.getElementById('nextActionOwner');
+        if (ownerSel) {
+          if (r.nextActionOwner) {
+            for (let i=0;i<ownerSel.options.length;i++) {
+              if (ownerSel.options[i].text === r.nextActionOwner) { ownerSel.selectedIndex = i; break; }
+            }
+          } else {
+            ownerSel.selectedIndex = 0;
+          }
+        }
+        const prSel = document.getElementById('priority');
+        if (prSel) prSel.value = r.priority || '';
+        const rem = document.getElementById('reminderFlag');
+        if (rem) rem.checked = !!(r.reminderFlag);
+        // 次にやること
+        const naSel = document.getElementById('nextActionSelect');
+        const naManualWrap = document.getElementById('nextActionManualWrap');
+        const naManual = document.getElementById('nextActionManual');
+        let next = r.nextAction || '';
+        if (naSel) {
+          let selected = false;
+          if (next && !String(next).startsWith('その他:')) {
+            // 候補にあればそれを選ぶ
+            for (let i=0;i<naSel.options.length;i++) {
+              if (naSel.options[i].value === next) { naSel.selectedIndex = i; selected = true; break; }
+            }
+          }
+          if (!selected) {
+            // その他で入力
+            naSel.value = 'その他';
+            if (naManualWrap) naManualWrap.style.display = 'block';
+            if (naManual) naManual.value = String(next).replace(/^その他:/,'');
+          } else {
+            if (naManualWrap) naManualWrap.style.display = 'none';
+            if (naManual) naManual.value = '';
+          }
+        }
+        // 次回予定日はコピー（必要に応じてユーザーが調整）
+        document.getElementById('nextActionDate').value = r.nextActionDate || '';
+        // 報告日時は現在時刻を自動セット
+        document.getElementById('reportDate').value = nowForDatetimeLocal();
+        // 上にスクロールして編集に移りやすく
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+      // 直近5件のダイジェストをカードで表示
+      function renderRecentDigest(list) {
+        const wrap = document.getElementById('recentDigest');
+        if (!wrap) return;
+        if (!list || list.length === 0) { wrap.innerHTML = ''; return; }
+        const five = list.slice(0,5);
+        let html = '<div class="muted" style="margin-bottom:4px;">最近の報告（5件）</div><div class="digest-cards">';
+        five.forEach(function(r){
+          const dstr = (r.reportDate || r.createdAt) ? new Date(r.reportDate || r.createdAt).toLocaleString() : '';
+          html += '<div class="digest-card">'
+                + '<div class="title">' + escapeHtml(r.summary || '(無題)') + '</div>'
+                + '<div class="meta">' + escapeHtml(dstr) + ' / ' + escapeHtml(r.channel || '') + (r.contactName? (' / ' + escapeHtml(r.contactName)) : '') + '</div>'
+                + (r.nextAction ? ('<div class="muted">次: ' + escapeHtml(r.nextAction) + (r.nextActionDate? ('（' + escapeHtml(r.nextActionDate) + '）') : '') + '</div>') : '')
+                + '<div style="margin-top:6px;"><button type="button" style="padding:4px 8px;font-size:12px;" onclick="copyReport(\'' + String(r.id).replace(/'/g,"&#39;") + '\')">コピー</button></div>'
+                + '</div>';
+        });
+        html += '</div>';
+        wrap.innerHTML = html;
+      }
+
+      // 次アクション候補マスター（ステージ基礎）
+      const NEXT_ACTION_BASE = {
+        '新規接触': ['資料送付','電話フォロー','訪問調整','担当者確認'],
+        '継続交渉': ['見積提示','追加資料送付','デモ調整','比較表提供'],
+        '見積・提案中': ['再見積','導入スケジュール提案','事例紹介','懸念点ヒアリング'],
+        '意思決定待ち': ['再フォロー連絡','条件再確認','開始日最終確認'],
+        '受注': ['導入準備','キックオフ設定','契約書送付'],
+        '失注': ['理由ヒアリング','次機会記録']
+      };
+      // 施設種類別の追加候補
+      const NEXT_ACTION_EXTRA = {
+        '共同生活援助（グループホーム）': {
+          '新規接触': ['空室状況確認','世話人面談調整'],
+          '継続交渉': ['入居候補者情報共有','夜間体制ヒアリング'],
+          '見積・提案中': ['加算要件確認','個別支援計画連携相談']
+        },
+        '訪問看護': {
+          '新規接触': ['疾患別利用状況確認','ケアマネ紹介依頼'],
+          '継続交渉': ['看護師体制確認','他職種連携事例紹介'],
+          '見積・提案中': ['医療処置範囲確認','指示書運用確認']
+        }
+      };
+      function rebuildNextActionOptions() {
+        const stage = document.getElementById('statusStage').value;
+        const facilitySel = document.getElementById('reportFacility');
+        let facilityType = '';
+        if (facilitySel && facilitySel.value) {
+          const opt = facilitySel.options[facilitySel.selectedIndex];
+          facilityType = opt ? (opt.getAttribute('data-facility-type') || '') : '';
+        }
+        const sel = document.getElementById('nextActionSelect');
+        if (!sel) return;
+        const actions = [];
+        if (stage && NEXT_ACTION_BASE[stage]) {
+          actions.push(...NEXT_ACTION_BASE[stage]);
+        }
+        if (stage && facilityType && NEXT_ACTION_EXTRA[facilityType] && NEXT_ACTION_EXTRA[facilityType][stage]) {
+          actions.push(...NEXT_ACTION_EXTRA[facilityType][stage]);
+        }
+        // 重複排除
+        const uniq = [];
+        const seen = new Set();
+        actions.forEach(a => { if (!seen.has(a)) { seen.add(a); uniq.push(a); } });
+        sel.innerHTML = '<option value="">-- 次にやることを選択 (任意) --</option>';
+        uniq.forEach(a => {
+          const o = document.createElement('option'); o.value = a; o.textContent = a; sel.appendChild(o);
+        });
+        // その他選択肢
+        const oOther = document.createElement('option'); oOther.value = 'その他'; oOther.textContent = 'その他'; sel.appendChild(oOther);
+        document.getElementById('nextActionManualWrap').style.display = 'none';
+        document.getElementById('nextActionManual').value = '';
+      }
+      function resetNextActionSelect() {
+        const sel = document.getElementById('nextActionSelect');
+        if (sel) sel.selectedIndex = 0;
+        document.getElementById('nextActionManualWrap').style.display = 'none';
+        document.getElementById('nextActionManual').value = '';
+      }
     </script>
   </head>
   <body>
@@ -172,6 +512,8 @@
     <form id="reportForm" onsubmit="event.preventDefault(); submitReport();">
       <label for="reportFacility">施設</label>
       <select id="reportFacility" required></select>
+      <div class="muted" id="activityBox" style="margin-top:4px;"></div>
+  <div id="recentDigest" class="digest-wrap"></div>
       <label for="reportDate">報告日時</label>
       <input type="datetime-local" id="reportDate">
       <label for="channelSelect">報告方法</label>
@@ -193,7 +535,31 @@
       <select id="contactSelect" disabled>
         <option value="">-- 施設を先に選択 --</option>
       </select>
+      <div style="margin:6px 0 8px;">
+        <label style="display:flex; align-items:center; gap:8px; margin:0;">
+          <input type="checkbox" id="unknownContactChk">担当者不明（名前を『不明』として保存）
+        </label>
+      </div>
       <div id="contactInfoBox" style="margin:4px 0 12px; font-size:13px; color:#555;"></div>
+      <div id="newContactPanel" style="display:none; border:1px solid #eee; padding:10px; border-radius:6px; margin-bottom:8px;">
+        <div style="font-size:13px; color:#555; margin-bottom:6px;">担当者を新規追加（この施設に紐づきます）</div>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+          <input id="newContactName" placeholder="氏名（必須）">
+          <input id="newContactPhone" placeholder="電話">
+        </div>
+        <input id="newContactNotes" placeholder="備考" style="margin-top:8px;">
+        <div style="margin-top:8px;">
+          <label style="display:block; margin-bottom:4px;">名刺写真（任意）</label>
+          <input type="file" id="newContactCardFile" accept="image/*" onchange="previewNewContactCard()">
+          <div id="newContactCardPreviewWrap" style="display:none; margin-top:6px;">
+            <img id="newContactCardPreview" alt="preview" style="max-width:180px; max-height:140px; border:1px solid #eee;" />
+          </div>
+        </div>
+        <button type="button" onclick="addContactFromReport()" style="margin-top:8px;">担当者を追加</button>
+      </div>
+      <div style="margin:0 0 12px;">
+        <button type="button" onclick="toggleNewContactPanel()" style="padding:6px 10px;">担当者追加パネルを開く / 閉じる</button>
+      </div>
       <label for="reporterSelect">報告者（社員）</label>
       <select id="reporterSelect" required>
         <option value="">-- 読み込み中 --</option>
@@ -204,6 +570,57 @@
       <textarea id="details" rows="4"></textarea>
       <label for="followUp">フォローアップ / 次アクション</label>
       <input type="text" id="followUp">
+      <div class="grid2">
+        <div>
+          <label for="nextActionSelect">次にやること（ステージ/種類に応じ候補）</label>
+          <select id="nextActionSelect"></select>
+          <div id="nextActionManualWrap" style="display:none;margin-top:6px;">
+            <label for="nextActionManual" style="margin-top:0;">その他詳細</label>
+            <input type="text" id="nextActionManual" placeholder="自由入力" />
+          </div>
+        </div>
+        <div>
+          <label for="nextActionDate">次回予定日</label>
+          <input type="date" id="nextActionDate">
+        </div>
+        <div>
+          <label for="nextActionOwner">担当（オーナー）</label>
+          <select id="nextActionOwner"><option value="">未指定</option></select>
+        </div>
+        <div>
+          <label for="priority">優先度</label>
+          <select id="priority">
+            <option value="">未設定</option>
+            <option value="高">高</option>
+            <option value="中">中</option>
+            <option value="低">低</option>
+          </select>
+        </div>
+        <div>
+          <label for="statusStage">ステータス</label>
+          <select id="statusStage">
+            <option value="">未設定</option>
+            <option value="新規接触">新規接触</option>
+            <option value="継続交渉">継続交渉</option>
+            <option value="見積・提案中">見積・提案中</option>
+            <option value="意思決定待ち">意思決定待ち</option>
+            <option value="受注">受注</option>
+            <option value="失注">失注</option>
+          </select>
+          <details style="margin-top:4px;font-size:12px;color:#555;">
+            <summary>ステージの目安</summary>
+            <div style="padding:4px 0;line-height:1.4;">
+              <b>新規接触</b>: 初回または情報収集段階 / <b>継続交渉</b>: 具体的なニーズ・課題ヒアリング進行中<br>
+              <b>見積・提案中</b>: 金額/提案資料提示済み / <b>意思決定待ち</b>: 社内検討・承認待ち<br>
+              <b>受注</b>: 契約・導入確定 / <b>失注</b>: 見送り理由確定（理由ヒアリング推奨）
+            </div>
+          </details>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px; margin-top:22px;">
+          <input type="checkbox" id="reminderFlag">
+          <label for="reminderFlag" style="margin:0;">リマインド（要フォロー）</label>
+        </div>
+      </div>
       <button type="submit">営業報告を登録</button>
     </form>
 
