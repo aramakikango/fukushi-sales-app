@@ -18,7 +18,6 @@
           name: document.getElementById('name').value,
           address: document.getElementById('address').value,
           phone: document.getElementById('phone').value,
-          contact: document.getElementById('contact').value,
           notes: document.getElementById('notes').value
         };
         if (!data.name) { alert('施設名を入力してください'); return; }
@@ -36,13 +35,13 @@
         google.script.run.withSuccessHandler(function(list) {
           const tbody = document.getElementById('facilityRows');
           if (!list || list.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4">登録された施設はまだありません</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="3">登録された施設はまだありません</td></tr>';
             return;
           }
           let html = '';
           list.forEach(function(f) {
             html += '<tr><td>' + escapeHtml(f.name) + '</td><td>' + escapeHtml(f.address) +
-                    '</td><td>' + escapeHtml(f.phone || '') + '</td><td>' + escapeHtml(f.contact || '') + '</td></tr>';
+                    '</td><td>' + escapeHtml(f.phone || '') + '</td></tr>';
           });
           tbody.innerHTML = html;
         }).getFacilities();
@@ -134,8 +133,6 @@
       <input type="text" id="address" required>
       <label for="phone">電話番号</label>
       <input type="text" id="phone" required>
-      <label for="contact">担当者</label>
-      <input type="text" id="contact">
       <label for="notes">備考</label>
       <textarea id="notes" rows="4"></textarea>
       <button type="submit">登録する</button>
@@ -144,10 +141,10 @@
     <h2>登録済み施設</h2>
     <table>
       <thead>
-        <tr><th>施設名</th><th>住所</th><th>電話番号</th><th>担当者</th></tr>
+        <tr><th>施設名</th><th>住所</th><th>電話番号</th></tr>
       </thead>
       <tbody id="facilityRows">
-        <tr><td colspan="4">読み込み中...</td></tr>
+        <tr><td colspan="3">読み込み中...</td></tr>
       </tbody>
     </table>
 
