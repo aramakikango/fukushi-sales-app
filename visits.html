@@ -23,8 +23,44 @@
         input, select, textarea { background:#1e1e1e; color:#eaeaea; border:1px solid #333; }
         button { background:#2a2a2a; color:#eaeaea; border:1px solid #444; }
       }
+      /* Manual theme overrides (placed after media query to win specificity) */
+      body.theme-dark { background:#111; color:#eaeaea; }
+      body.theme-dark th, body.theme-dark td { border-bottom:1px solid #333; }
+      body.theme-dark input, body.theme-dark select, body.theme-dark textarea { background:#1e1e1e; color:#eaeaea; border:1px solid #333; }
+      body.theme-dark button { background:#2a2a2a; color:#eaeaea; border:1px solid #444; }
+      body.theme-light { background:#fff; color:#111; }
+      body.theme-light th, body.theme-light td { border-bottom:1px solid #eee; }
+      body.theme-light input, body.theme-light select, body.theme-light textarea { background:#fff; color:#111; border:1px solid #ccc; }
+      body.theme-light button { background:#f5f5f5; color:#111; border:1px solid #ccc; }
     </style>
     <script>
+      // Theme toggle with persistence
+      function applyTheme(pref){
+        document.body.classList.remove('theme-dark','theme-light');
+        if (pref === 'dark') document.body.classList.add('theme-dark');
+        if (pref === 'light') document.body.classList.add('theme-light');
+      }
+      function updateThemeButton(pref){
+        const btn = document.getElementById('themeToggleBtn');
+        if (!btn) return;
+        const label = pref === 'dark' ? 'テーマ: ダーク' : pref === 'light' ? 'テーマ: ライト' : 'テーマ: 自動';
+        btn.textContent = label;
+      }
+      function initTheme(){
+        const pref = localStorage.getItem('theme') || 'system';
+        applyTheme(pref);
+        updateThemeButton(pref);
+      }
+      function toggleTheme(){
+        const current = localStorage.getItem('theme') || 'system';
+        const next = current === 'system' ? 'dark' : current === 'dark' ? 'light' : 'system';
+        localStorage.setItem('theme', next);
+        applyTheme(next);
+        updateThemeButton(next);
+      }
+
+      // Facility handling
+      let CURRENT_FACILITY_ID = '';
       function escapeHtml(str){ if(!str) return ''; return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
       function nowForDatetimeLocal(){
         const d = new Date();
@@ -32,9 +68,31 @@
         return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
       }
       function loadFacilities(){
+        const wrap = document.getElementById('facilityWrap');
         const sel = document.getElementById('visitFacility');
         sel.innerHTML = '<option value="">-- 施設を選択 --</option>';
         google.script.run.withSuccessHandler(function(list){
+          if (!list || list.length === 0) {
+            wrap.style.display = 'block';
+            sel.innerHTML = '<option value="">先に施設登録が必要です</option>';
+            sel.disabled = true;
+            CURRENT_FACILITY_ID = '';
+            document.getElementById('visitForm').querySelector('button[type="submit"]').disabled = true;
+            document.getElementById('visitRows').innerHTML = '<tr><td colspan="6">施設が未登録です</td></tr>';
+            document.getElementById('activityBox').textContent = '';
+            return;
+          }
+          if (list.length === 1) {
+            // 自施設: 選択不要
+            CURRENT_FACILITY_ID = list[0].id;
+            wrap.style.display = 'none';
+            document.getElementById('visitForm').querySelector('button[type="submit"]').disabled = false;
+            onFacilityChangeInternal(CURRENT_FACILITY_ID);
+            return;
+          }
+          // 複数ある場合のみ選択表示
+          wrap.style.display = 'block';
+          sel.disabled = false;
           list.forEach(function(f){
             const o = document.createElement('option');
             o.value = f.id; o.textContent = f.name + (f.address ? ' — ' + f.address : '');
@@ -44,6 +102,10 @@
       }
       function onFacilityChange(){
         const fid = document.getElementById('visitFacility').value;
+        CURRENT_FACILITY_ID = fid || '';
+        onFacilityChangeInternal(CURRENT_FACILITY_ID);
+      }
+      function onFacilityChangeInternal(fid){
         if (!fid) {
           document.getElementById('visitRows').innerHTML = '<tr><td colspan="6">施設を選択してください</td></tr>';
           document.getElementById('activityBox').innerHTML = '';
@@ -83,7 +145,7 @@
         document.getElementById('visitorFields').style.display = (t === '来訪') ? 'block' : 'none';
       }
       function submitVisit(){
-        const facilityId = document.getElementById('visitFacility').value;
+        const facilityId = CURRENT_FACILITY_ID || document.getElementById('visitFacility').value;
         if (!facilityId) { alert('施設を選択してください'); return; }
         const data = {
           facilityId: facilityId,
@@ -108,6 +170,7 @@
         }).addVisit(data);
       }
       window.addEventListener('load', function(){
+        initTheme();
         loadFacilities();
         document.getElementById('visitFacility').addEventListener('change', onFacilityChange);
         document.getElementById('inquiryType').addEventListener('change', onInquiryTypeChange);
@@ -122,12 +185,15 @@
       <a href="<?= ScriptApp.getService().getUrl(); ?>?page=facilities">施設登録</a>
       <a href="<?= ScriptApp.getService().getUrl(); ?>?page=reports">営業報告</a>
       <a href="<?= ScriptApp.getService().getUrl(); ?>?page=employees">社員登録</a>
+      <button id="themeToggleBtn" type="button" style="float:right;" onclick="toggleTheme()">テーマ: 自動</button>
     </nav>
 
     <h1>問い合わせ記録</h1>
     <form id="visitForm" onsubmit="event.preventDefault(); submitVisit();">
-      <label for="visitFacility">施設</label>
-      <select id="visitFacility" required></select>
+      <div id="facilityWrap">
+        <label for="visitFacility">施設</label>
+        <select id="visitFacility"></select>
+      </div>
       <div id="activityBox" class="muted" style="margin-top:4px;"></div>
 
       <div class="row">

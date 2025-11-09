@@ -17,9 +17,24 @@
         a { color:#8ab4ff; border-color:#3769e6; }
         a:hover { background:#1f3a75; color:#eaeaea; }
       }
+      /* Manual theme overrides */
+      body.theme-dark { background:#111; color:#eaeaea; }
+      body.theme-light { background:#fff; color:#111; }
+      body.theme-dark p { color:#bbb; }
+      body.theme-light p { color:#555; }
+      body.theme-dark a { color:#8ab4ff; border-color:#3769e6; }
+      body.theme-dark a:hover { background:#1f3a75; color:#eaeaea; }
     </style>
+    <script>
+      function applyTheme(pref){ document.body.classList.remove('theme-dark','theme-light'); if(pref==='dark')document.body.classList.add('theme-dark'); if(pref==='light')document.body.classList.add('theme-light'); }
+      function updateThemeButton(pref){ const btn=document.getElementById('themeToggleBtn'); if(btn) btn.textContent = pref==='dark'?'テーマ: ダーク':(pref==='light'?'テーマ: ライト':'テーマ: 自動'); }
+      function initTheme(){ const pref=localStorage.getItem('theme')||'system'; applyTheme(pref); updateThemeButton(pref); }
+      function toggleTheme(){ const cur=localStorage.getItem('theme')||'system'; const next=cur==='system'?'dark':(cur==='dark'?'light':'system'); localStorage.setItem('theme',next); applyTheme(next); updateThemeButton(next); }
+      window.addEventListener('load', initTheme);
+    </script>
   </head>
   <body>
+  <div style="text-align:right; margin-bottom:8px;"><button id="themeToggleBtn" type="button" onclick="toggleTheme()">テーマ: 自動</button></div>
     <h1>営業管理メニュー</h1>
     <p>利用したい機能を選択してください。</p>
     <ul>

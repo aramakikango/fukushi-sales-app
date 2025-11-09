@@ -28,7 +28,20 @@
         button { background:#2a2a2a; color:#eaeaea; border:1px solid #444; }
         nav a { color:#8ab4ff; }
       }
+      body.theme-dark { background:#111; color:#eaeaea; }
+      body.theme-dark th, body.theme-dark td { border-bottom:1px solid #333; }
+      body.theme-dark input, body.theme-dark textarea, body.theme-dark select { background:#1e1e1e; color:#eaeaea; border:1px solid #333; }
+      body.theme-dark button { background:#2a2a2a; color:#eaeaea; border:1px solid #444; }
+      body.theme-dark nav a { color:#8ab4ff; }
+      body.theme-light { background:#fff; color:#111; }
     </style>
+    <script>
+      function applyTheme(pref){ document.body.classList.remove('theme-dark','theme-light'); if(pref==='dark')document.body.classList.add('theme-dark'); if(pref==='light')document.body.classList.add('theme-light'); }
+      function updateThemeButton(pref){ const b=document.getElementById('themeToggleBtn'); if(b) b.textContent = pref==='dark'?'テーマ: ダーク':(pref==='light'?'テーマ: ライト':'テーマ: 自動'); }
+      function initTheme(){ const p=localStorage.getItem('theme')||'system'; applyTheme(p); updateThemeButton(p); }
+      function toggleTheme(){ const cur=localStorage.getItem('theme')||'system'; const next=cur==='system'?'dark':(cur==='dark'?'light':'system'); localStorage.setItem('theme',next); applyTheme(next); updateThemeButton(next); }
+      window.addEventListener('load', initTheme);
+    </script>
     <script>
       function submitFacility() {
         const data = {
@@ -148,6 +161,7 @@
       <a href="<?= ScriptApp.getService().getUrl(); ?>?page=visits">問い合わせ記録</a>
       <a href="<?= ScriptApp.getService().getUrl(); ?>?page=reports">営業報告</a>
       <a href="<?= ScriptApp.getService().getUrl(); ?>?page=employees">社員登録</a>
+      <button id="themeToggleBtn" type="button" style="float:right;" onclick="toggleTheme()">テーマ: 自動</button>
     </nav>
 
     <h1>施設登録</h1>
