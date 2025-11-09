@@ -195,8 +195,8 @@ function setupSheets() {
       }
     }
     // パートナー営業用の追加列（不足のみ追加）
-    let headers3 = cs.getRange(1,1,1,cs.getLastColumn()).getValues()[0];
-    const needPartnerCols = ['partnerFlag','partnerType','referralCount','lastReferralDate','partnerSince','nextAction','nextActionDate','lastActivityDate'];
+  let headers3 = cs.getRange(1,1,1,cs.getLastColumn()).getValues()[0];
+  const needPartnerCols = ['partnerFlag','partnerType','stage','referralCount','lastReferralDate','partnerSince','nextAction','nextActionDate','lastActivityDate'];
     needPartnerCols.forEach(function(col){
       if (headers3.indexOf(col) === -1) {
         cs.insertColumnAfter(cs.getLastColumn());
@@ -927,6 +927,7 @@ function getFacilityContacts(params) {
       contactPhone: idx.contactPhone!=null ? r[idx.contactPhone] : '',
       contactNotes: idx.contactNotes!=null ? r[idx.contactNotes] : '',
       cardFileId: idx.cardFileId!=null ? r[idx.cardFileId] : '',
+  stage: idx.stage!=null ? r[idx.stage] : '',
       partnerFlag: idx.partnerFlag!=null ? (r[idx.partnerFlag] === '1') : false,
       partnerType: idx.partnerType!=null ? r[idx.partnerType] : '',
       referralCount: idx.referralCount!=null ? Number(r[idx.referralCount]||0) : 0,
@@ -958,6 +959,7 @@ function getPartnerContacts(params) {
     facilityName: map[c.facilityId] || '',
     contactName: c.contactName,
     partnerType: c.partnerType,
+    stage: c.stage,
     referralCount: c.referralCount,
     lastReferralDate: c.lastReferralDate,
     nextAction: c.nextAction,
@@ -985,6 +987,7 @@ function updatePartnerContact(data) {
   function set(col, val){ if (idx[col]!=null) sheet.getRange(target+1, idx[col]+1).setValue(val); }
   if (data.partnerFlag != null) set('partnerFlag', data.partnerFlag ? '1' : '');
   if (data.partnerType != null) set('partnerType', data.partnerType || '');
+  if (data.stage != null) set('stage', data.stage || '');
   if (data.nextAction != null) set('nextAction', data.nextAction || '');
   if (data.nextActionDate != null) set('nextActionDate', data.nextActionDate || '');
   // partnerSince 初期設定

@@ -67,16 +67,42 @@
               '<td>'+escapeHtml(p.facilityName||'')+'</td>'+
               '<td>'+escapeHtml(p.contactName||'')+'</td>'+
               '<td>'+escapeHtml(p.partnerType||'')+'</td>'+
+              '<td>'+escapeHtml(stageLabel(p.stage))+'</td>'+
               '<td>'+ (p.referralCount||0) +'</td>'+
               '<td>'+ escapeHtml(p.lastActivityDate||'') +'</td>'+
               '<td>'+ escapeHtml(p.nextAction||'') +'</td>'+
               '<td>'+ escapeHtml(p.nextActionDate||'') +'</td>'+
-              '<td><button onclick="openLog(\''+p.id+'\', \''+escapeHtml(p.contactName)+'\', \''+escapeHtml(p.facilityName)+'\')">接触ログ</button></td>'+
+              '<td><button onclick="openLog(\''+p.id+'\', \''+escapeHtml(p.contactName)+'\', \''+escapeHtml(p.facilityName)+'\')">記録</button> <button onclick="showLogs(\''+p.id+'\')">履歴</button> <button onclick="unsetPartner(\''+p.id+'\')">解除</button></td>'+
             '</tr>';
           });
           tbody.innerHTML = html;
         }).getPartnerContacts({});
       }
+      function stageLabel(val){
+        if(!val) return '未設定';
+        const m={ '潜在':'潜在','関係構築中':'構築中','安定':'安定','停滞':'停滞' };
+        return m[val]||val;
+      }
+      function unsetPartner(id){
+        if(!confirm('パートナーを解除しますか？')) return;
+        google.script.run.withSuccessHandler(function(){ loadPartners(); loadUpcoming(); }).updatePartnerContact({ id, partnerFlag:false, stage:'' });
+      }
+      function showLogs(contactId){
+        google.script.run.withSuccessHandler(function(list){
+          const box=document.getElementById('historyPane');
+          if(!list||list.length===0){ box.innerHTML='<div class="muted">履歴なし</div>'; return; }
+          let html='';
+          list.slice(0,10).forEach(function(a){
+            html += '<div style="border-bottom:1px solid #eee; padding:4px 0;">'+
+              '<b>'+escapeHtml(a.activityType)+' '+escapeHtml(a.activityDate)+'</b><br>'+escapeHtml(a.summary||'')+
+              (a.nextActionDate? ('<br><span class="muted">次: '+escapeHtml(a.nextActionDate)+'</span>'):'')+
+              '</div>';
+          });
+          box.innerHTML=html;
+          document.getElementById('historyModal').style.display='block';
+        }).getPartnerActivities({ contactId: contactId });
+      }
+      function closeHistory(){ document.getElementById('historyModal').style.display='none'; }
 
       function loadUpcoming(){
         google.script.run.withSuccessHandler(function(list){
@@ -158,12 +184,14 @@
     </section>
 
     <h2 style="margin-top:20px;">パートナー一覧</h2>
+    <div class="muted" style="margin-bottom:4px;">ステージ: 潜在 → 関係構築中 → 安定 → 停滞（再活性が必要）</div>
     <table>
       <thead>
         <tr>
           <th>所属(施設)</th>
           <th>氏名</th>
           <th>種別</th>
+          <th>ステージ</th>
           <th>紹介実績</th>
           <th>最終接触</th>
           <th>次アクション</th>
@@ -207,6 +235,16 @@
         <div style="text-align:right; margin-top:12px;">
           <button onclick="closeLog()">キャンセル</button>
           <button onclick="saveLog()">保存</button>
+        </div>
+      </div>
+    </div>
+    <!-- 履歴表示モーダル -->
+    <div id="historyModal" style="display:none; position:fixed; left:0; right:0; top:0; bottom:0; background:rgba(0,0,0,.35);">
+      <div style="max-width:560px; margin:5% auto; background:#fff; color:#111; padding:16px; border-radius:8px; max-height:80%; overflow:auto;">
+        <h3 style="margin-top:0;">接触履歴 (最新10件)</h3>
+        <div id="historyPane">読み込み中...</div>
+        <div style="text-align:right; margin-top:12px;">
+          <button onclick="closeHistory()">閉じる</button>
         </div>
       </div>
     </div>
