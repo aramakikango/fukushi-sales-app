@@ -131,7 +131,7 @@
             html += '<tr>' +
               '<td>' + escapeHtml(d) + '</td>' +
               '<td>' + escapeHtml(v.inquiryType || '') + '</td>' +
-              '<td>' + escapeHtml(v.visitorName || '') + (v.visitorRelation? ('（' + escapeHtml(v.visitorRelation) + '）') : '') + '</td>' +
+              '<td>' + escapeHtml(v.visitorName || '') + (v.visitorRelation? ('（' + escapeHtml(v.visitorRelation) + '）') : '') + (v.subjectName ? (' / 対象:' + escapeHtml(v.subjectName)) : '') + '</td>' +
               '<td>' + escapeHtml(v.visitPurpose || '') + '</td>' +
               '<td>' + escapeHtml(v.diagnosis || '') + (v.disabilityCategory? (' / ' + escapeHtml(v.disabilityCategory)) : '') + (wishes? (' / ' + wishes) : '') + '</td>' +
               '<td>' + escapeHtml(v.notes || '') + '</td>' +
@@ -141,8 +141,9 @@
         }).getVisits({ facilityId: fid });
       }
       function onInquiryTypeChange(){
-        const t = document.getElementById('inquiryType').value;
-        document.getElementById('visitorFields').style.display = (t === '来訪') ? 'block' : 'none';
+        // 電話でも詳細を記入できるよう常時表示
+        const blk = document.getElementById('visitorFields');
+        if (blk) blk.style.display = 'block';
       }
       function submitVisit(){
         const facilityId = CURRENT_FACILITY_ID || document.getElementById('visitFacility').value;
@@ -153,11 +154,24 @@
           inquiryType: document.getElementById('inquiryType').value,
           visitorName: document.getElementById('visitorName').value,
           visitorRelation: document.getElementById('visitorRelation').value,
+          callerPhone: (document.getElementById('callerPhone')||{}).value || '',
+          callerEmail: (document.getElementById('callerEmail')||{}).value || '',
+          subjectName: (document.getElementById('subjectName')||{}).value || '',
+          subjectAge: (document.getElementById('subjectAge')||{}).value || '',
+          subjectGender: (document.getElementById('subjectGender')||{}).value || '',
           diagnosis: document.getElementById('diagnosis').value,
           disabilityCategory: document.getElementById('disabilityCategory').value,
+          careLevel: (document.getElementById('careLevel')||{}).value || '',
+          residenceMunicipality: (document.getElementById('residenceMunicipality')||{}).value || '',
           wantsGroupHome: document.getElementById('wantsGroupHome').checked,
           wantsHomeNursing: document.getElementById('wantsHomeNursing').checked,
+          desiredStartDate: (document.getElementById('desiredStartDate')||{}).value || '',
           visitPurpose: document.getElementById('visitPurpose').value,
+          urgency: (document.getElementById('urgency')||{}).value || '',
+          preferredContactMethod: (document.getElementById('preferredContactMethod')||{}).value || '',
+          preferredContactTime: (document.getElementById('preferredContactTime')||{}).value || '',
+          referralSource: (document.getElementById('referralSource')||{}).value || '',
+          consentFlag: (document.getElementById('consentFlag')||{}).checked || false,
           notes: document.getElementById('notes').value
         };
         if (!data.inquiryType) { alert('問い合わせ種別を選択してください'); return; }
@@ -211,29 +225,69 @@
         </div>
       </div>
 
-      <!-- 来訪向けフィールド -->
-      <div id="visitorFields" style="display:none; margin-top:8px; border:1px solid #eee; padding:12px; border-radius:6px;">
+      <!-- 詳細情報（電話/来訪 共通で入力可能） -->
+      <div id="visitorFields" style="display:block; margin-top:8px; border:1px solid #eee; padding:12px; border-radius:6px;">
+        <h3 style="margin:0 0 8px 0; font-size:16px;">相談者情報</h3>
         <div class="row">
           <div>
-            <label for="visitorName">来訪者名</label>
+            <label for="visitorName">相談者名</label>
             <input id="visitorName" type="text" placeholder="例: 山田 太郎">
           </div>
           <div>
-            <label for="visitorRelation">来訪者区分</label>
+            <label for="visitorRelation">相談者区分</label>
             <select id="visitorRelation">
               <option value="">-- 選択 --</option>
               <option value="利用者本人">利用者本人</option>
               <option value="家族">家族</option>
-              <option value="ケアマネ等">ケアマネ等</option>
-              <option value="業者">業者</option>
+              <option value="ケアマネ">ケアマネ</option>
+              <option value="医療機関">医療機関</option>
+              <option value="行政">行政</option>
+              <option value="事業所">事業所</option>
               <option value="その他">その他</option>
             </select>
           </div>
         </div>
         <div class="row">
           <div>
+            <label for="callerPhone">相談者電話</label>
+            <input id="callerPhone" type="tel" placeholder="090-1234-5678">
+          </div>
+          <div>
+            <label for="callerEmail">相談者メール（任意）</label>
+            <input id="callerEmail" type="email" placeholder="example@example.com">
+          </div>
+        </div>
+        <h3 style="margin:16px 0 8px 0; font-size:16px;">対象者情報</h3>
+        <div class="row">
+          <div>
+            <label for="subjectName">対象者名（任意）</label>
+            <input id="subjectName" type="text" placeholder="例: 山田 花子">
+          </div>
+          <div>
+            <label for="subjectAge">年齢（任意）</label>
+            <input id="subjectAge" type="number" min="0" max="120" placeholder="例: 82">
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <label for="subjectGender">性別</label>
+            <select id="subjectGender">
+              <option value="">-- 選択 --</option>
+              <option value="男性">男性</option>
+              <option value="女性">女性</option>
+              <option value="その他">その他</option>
+              <option value="不明">不明</option>
+            </select>
+          </div>
+          <div>
+            <label for="residenceMunicipality">居住地（市区町村）</label>
+            <input id="residenceMunicipality" type="text" placeholder="例: 横浜市港北区">
+          </div>
+        </div>
+        <div class="row">
+          <div>
             <label for="diagnosis">疾患名 / 主な診断</label>
-            <input id="diagnosis" type="text" placeholder="疾患名を入力">
+            <input id="diagnosis" type="text" placeholder="例: 認知症, 脳梗塞後遺症 など">
           </div>
           <div>
             <label for="disabilityCategory">障害区分</label>
@@ -247,11 +301,73 @@
             </select>
           </div>
         </div>
+        <div class="row">
+          <div>
+            <label for="careLevel">要介護度</label>
+            <select id="careLevel">
+              <option value="">-- 選択 --</option>
+              <option value="自立">自立</option>
+              <option value="要支援1">要支援1</option>
+              <option value="要支援2">要支援2</option>
+              <option value="要介護1">要介護1</option>
+              <option value="要介護2">要介護2</option>
+              <option value="要介護3">要介護3</option>
+              <option value="要介護4">要介護4</option>
+              <option value="要介護5">要介護5</option>
+              <option value="不明">不明</option>
+            </select>
+          </div>
+          <div>
+            <label for="desiredStartDate">希望開始時期（任意）</label>
+            <input id="desiredStartDate" type="date">
+          </div>
+        </div>
         <div>
           <label>希望サービス（複数選択可）</label>
           <label style="display:block; margin-top:4px;"><input type="checkbox" id="wantsGroupHome"> グループホーム希望</label>
           <label style="display:block; margin-top:4px;"><input type="checkbox" id="wantsHomeNursing"> 訪問看護希望</label>
         </div>
+        <h3 style="margin:16px 0 8px 0; font-size:16px;">連絡・その他</h3>
+        <div class="row">
+          <div>
+            <label for="urgency">緊急度</label>
+            <select id="urgency">
+              <option value="">-- 選択 --</option>
+              <option value="高">高</option>
+              <option value="中">中</option>
+              <option value="低">低</option>
+            </select>
+          </div>
+          <div>
+            <label for="preferredContactMethod">連絡手段の希望</label>
+            <select id="preferredContactMethod">
+              <option value="">-- 選択 --</option>
+              <option value="電話">電話</option>
+              <option value="メール">メール</option>
+              <option value="その他">その他</option>
+            </select>
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <label for="preferredContactTime">連絡希望時間帯（任意）</label>
+            <input id="preferredContactTime" type="text" placeholder="例: 平日 10:00-12:00">
+          </div>
+          <div>
+            <label for="referralSource">情報経路</label>
+            <select id="referralSource">
+              <option value="">-- 選択 --</option>
+              <option value="紹介(ケアマネ)">紹介(ケアマネ)</option>
+              <option value="病院">病院</option>
+              <option value="行政">行政</option>
+              <option value="ネット検索">ネット検索</option>
+              <option value="チラシ・ポスター">チラシ・ポスター</option>
+              <option value="通りがかり">通りがかり</option>
+              <option value="その他">その他</option>
+            </select>
+          </div>
+        </div>
+        <label style="display:block; margin-top:4px;"><input type="checkbox" id="consentFlag"> 連絡・個人情報の取扱いについて同意を得た</label>
       </div>
 
       <label for="visitPurpose" style="margin-top:12px;">要件 / 目的</label>
@@ -269,7 +385,7 @@
         <tr>
           <th>日時</th>
           <th>種別</th>
-          <th>来訪者</th>
+          <th>相談者/対象者</th>
           <th>要件</th>
           <th>診断/区分/希望</th>
           <th>備考</th>

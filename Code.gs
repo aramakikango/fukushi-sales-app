@@ -529,7 +529,7 @@ function addVisit(data) {
   }
   // ヘッダ拡張（旧visitType互換、staffName削除／inquiryType採用）
   let headers = sheet.getRange(1,1,1,sheet.getLastColumn()).getValues()[0];
-  const needed = ['id','facilityId','visitDate','inquiryType','visitorName','visitorRelation','diagnosis','disabilityCategory','wantsGroupHome','wantsHomeNursing','visitPurpose','notes','createdAt','createdBy'];
+  const needed = ['id','facilityId','visitDate','inquiryType','visitorName','visitorRelation','callerPhone','callerEmail','subjectName','subjectAge','subjectGender','diagnosis','disabilityCategory','careLevel','residenceMunicipality','wantsGroupHome','wantsHomeNursing','desiredStartDate','visitPurpose','urgency','preferredContactMethod','preferredContactTime','referralSource','consentFlag','notes','createdAt','createdBy'];
   needed.forEach(function(h){
     if (headers.indexOf(h) === -1) {
       sheet.insertColumnAfter(sheet.getLastColumn());
@@ -565,11 +565,24 @@ function addVisit(data) {
   set('inquiryType', data.inquiryType || data.visitType || ''); // 電話 / 来訪 / 訪問 等
   set('visitorName', data.visitorName || '');
   set('visitorRelation', data.visitorRelation || '');
+  set('callerPhone', data.callerPhone || '');
+  set('callerEmail', data.callerEmail || '');
+  set('subjectName', data.subjectName || '');
+  set('subjectAge', data.subjectAge || '');
+  set('subjectGender', data.subjectGender || '');
   set('diagnosis', data.diagnosis || '');
   set('disabilityCategory', data.disabilityCategory || '');
+  set('careLevel', data.careLevel || '');
+  set('residenceMunicipality', data.residenceMunicipality || '');
   set('wantsGroupHome', data.wantsGroupHome ? '1' : '');
   set('wantsHomeNursing', data.wantsHomeNursing ? '1' : '');
+  set('desiredStartDate', data.desiredStartDate || '');
   set('visitPurpose', data.visitPurpose || '');
+  set('urgency', data.urgency || '');
+  set('preferredContactMethod', data.preferredContactMethod || '');
+  set('preferredContactTime', data.preferredContactTime || '');
+  set('referralSource', data.referralSource || '');
+  set('consentFlag', data.consentFlag ? '1' : '');
   set('notes', data.notes || '');
   set('createdAt', createdAt);
   set('createdBy', createdBy);
@@ -596,11 +609,24 @@ function getVisits(params) {
       inquiryType: idx.inquiryType!=null ? r[idx.inquiryType] : (idx.visitType!=null ? r[idx.visitType] : ''),
       visitorName: idx.visitorName!=null ? r[idx.visitorName] : '',
       visitorRelation: idx.visitorRelation!=null ? r[idx.visitorRelation] : '',
+      callerPhone: idx.callerPhone!=null ? r[idx.callerPhone] : '',
+      callerEmail: idx.callerEmail!=null ? r[idx.callerEmail] : '',
+      subjectName: idx.subjectName!=null ? r[idx.subjectName] : '',
+      subjectAge: idx.subjectAge!=null ? r[idx.subjectAge] : '',
+      subjectGender: idx.subjectGender!=null ? r[idx.subjectGender] : '',
       diagnosis: idx.diagnosis!=null ? r[idx.diagnosis] : '',
       disabilityCategory: idx.disabilityCategory!=null ? r[idx.disabilityCategory] : '',
+      careLevel: idx.careLevel!=null ? r[idx.careLevel] : '',
+      residenceMunicipality: idx.residenceMunicipality!=null ? r[idx.residenceMunicipality] : '',
       wantsGroupHome: idx.wantsGroupHome!=null ? r[idx.wantsGroupHome] : '',
       wantsHomeNursing: idx.wantsHomeNursing!=null ? r[idx.wantsHomeNursing] : '',
+      desiredStartDate: idx.desiredStartDate!=null ? r[idx.desiredStartDate] : '',
       visitPurpose: idx.visitPurpose!=null ? r[idx.visitPurpose] : '',
+      urgency: idx.urgency!=null ? r[idx.urgency] : '',
+      preferredContactMethod: idx.preferredContactMethod!=null ? r[idx.preferredContactMethod] : '',
+      preferredContactTime: idx.preferredContactTime!=null ? r[idx.preferredContactTime] : '',
+      referralSource: idx.referralSource!=null ? r[idx.referralSource] : '',
+      consentFlag: idx.consentFlag!=null ? r[idx.consentFlag] === '1' : false,
       notes: idx.notes!=null ? r[idx.notes] : '',
       createdAt: idx.createdAt!=null ? r[idx.createdAt] : '',
       createdBy: idx.createdBy!=null ? r[idx.createdBy] : ''
