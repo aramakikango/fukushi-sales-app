@@ -10,7 +10,7 @@ function getSpreadsheet() {
 // 不正な page の場合は index を返し、読み込みエラー時は簡易エラーページを返します。
 function doGet(e) {
   const page = (e && e.parameter && e.parameter.page) || 'index';
-  const allowed = ['index', 'facilities', 'visits', 'reports', 'employees', 'manage', 'targets'];
+  const allowed = ['index', 'facilities', 'visits', 'reports', 'employees', 'manage', 'targets', 'partners'];
   Logger.log('[doGet] raw page param=%s', page);
   // 必要なシートが揃っているか確認（無ければ作成・マイグレーション）
   try { setupSheets(); } catch (err) { Logger.log('[setupSheets][WARN] %s', err && err.message); }
@@ -194,6 +194,20 @@ function setupSheets() {
         cs.getRange(1, cs.getLastColumn()).setValue('cardFileId');
       }
     }
+    // パートナー営業用の追加列（不足のみ追加）
+    let headers3 = cs.getRange(1,1,1,cs.getLastColumn()).getValues()[0];
+    const needPartnerCols = ['partnerFlag','partnerType','referralCount','lastReferralDate','partnerSince','nextAction','nextActionDate','lastActivityDate'];
+    needPartnerCols.forEach(function(col){
+      if (headers3.indexOf(col) === -1) {
+        cs.insertColumnAfter(cs.getLastColumn());
+        cs.getRange(1, cs.getLastColumn()).setValue(col);
+        headers3 = cs.getRange(1,1,1,cs.getLastColumn()).getValues()[0];
+      }
+    });
+  }
+  // パートナー活動ログシート
+  if (!names.includes('PartnerActivities')) {
+    ss.insertSheet('PartnerActivities').appendRow(['id','contactId','activityDate','activityType','summary','nextActionDate','createdAt','createdBy']);
   }
   // 市区町村マスタ
   if (!names.includes('Municipalities')) {
@@ -913,13 +927,168 @@ function getFacilityContacts(params) {
       contactPhone: idx.contactPhone!=null ? r[idx.contactPhone] : '',
       contactNotes: idx.contactNotes!=null ? r[idx.contactNotes] : '',
       cardFileId: idx.cardFileId!=null ? r[idx.cardFileId] : '',
+      partnerFlag: idx.partnerFlag!=null ? (r[idx.partnerFlag] === '1') : false,
+      partnerType: idx.partnerType!=null ? r[idx.partnerType] : '',
+      referralCount: idx.referralCount!=null ? Number(r[idx.referralCount]||0) : 0,
+      lastReferralDate: idx.lastReferralDate!=null ? r[idx.lastReferralDate] : '',
+      partnerSince: idx.partnerSince!=null ? r[idx.partnerSince] : '',
+      nextAction: idx.nextAction!=null ? r[idx.nextAction] : '',
+      nextActionDate: idx.nextActionDate!=null ? r[idx.nextActionDate] : '',
+      lastActivityDate: idx.lastActivityDate!=null ? r[idx.lastActivityDate] : '',
       createdAt: r[idx.createdAt] || r[4],
       createdBy: r[idx.createdBy] || r[5]
     };
     if (params.facilityId && item.facilityId !== params.facilityId) continue;
+    if (params.partnerFlag === true && !item.partnerFlag) continue;
     list.push(item);
   }
   return list;
+}
+
+// パートナー（紹介元）抽出。Facility名も付与。
+function getPartnerContacts(params) {
+  params = params || {}; params.partnerFlag = true;
+  const contacts = getFacilityContacts(params);
+  if (!contacts.length) return [];
+  const facilities = getFacilities();
+  const map = {}; facilities.forEach(f=> map[f.id]=f.name);
+  return contacts.map(c => ({
+    id: c.id,
+    facilityId: c.facilityId,
+    facilityName: map[c.facilityId] || '',
+    contactName: c.contactName,
+    partnerType: c.partnerType,
+    referralCount: c.referralCount,
+    lastReferralDate: c.lastReferralDate,
+    nextAction: c.nextAction,
+    nextActionDate: c.nextActionDate,
+    lastActivityDate: c.lastActivityDate,
+    partnerSince: c.partnerSince
+  }));
+}
+
+// パートナー設定/更新
+function updatePartnerContact(data) {
+  if (!data || !data.id) throw new Error('id は必須です');
+  const ss = getSpreadsheet();
+  const sheet = ss.getSheetByName('FacilityContacts');
+  if (!sheet) throw new Error('FacilityContacts シートがありません');
+  const rows = sheet.getDataRange().getValues();
+  if (rows.length <= 1) throw new Error('更新対象がありません');
+  const headers = rows[0];
+  const idx = {}; headers.forEach((h,i)=> idx[h]=i);
+  let target = -1;
+  for (let i=1;i<rows.length;i++) {
+    if (String(rows[i][idx.id]) === String(data.id)) { target = i; break; }
+  }
+  if (target === -1) throw new Error('指定IDが見つかりません');
+  function set(col, val){ if (idx[col]!=null) sheet.getRange(target+1, idx[col]+1).setValue(val); }
+  if (data.partnerFlag != null) set('partnerFlag', data.partnerFlag ? '1' : '');
+  if (data.partnerType != null) set('partnerType', data.partnerType || '');
+  if (data.nextAction != null) set('nextAction', data.nextAction || '');
+  if (data.nextActionDate != null) set('nextActionDate', data.nextActionDate || '');
+  // partnerSince 初期設定
+  if (data.partnerFlag && idx.partnerSince!=null) {
+    const cur = rows[target][idx.partnerSince];
+    if (!cur) sheet.getRange(target+1, idx.partnerSince+1).setValue(nowIso());
+  }
+  return { id: data.id };
+}
+
+// パートナー活動ログ追加
+function addPartnerActivity(data) {
+  if (!data || !data.contactId) throw new Error('contactId は必須です');
+  const ss = getSpreadsheet();
+  const sheet = ss.getSheetByName('PartnerActivities');
+  if (!sheet) throw new Error('PartnerActivities シートがありません');
+  const headers = sheet.getRange(1,1,1,sheet.getLastColumn()).getValues()[0];
+  const idx = {}; headers.forEach((h,i)=> idx[h]=i);
+  const id = makeId('PACT');
+  const createdAt = nowIso();
+  const createdBy = activeUserEmail();
+  const activityDate = normalizeDate(data.activityDate, createdAt);
+  const row = new Array(headers.length).fill('');
+  function set(h,v){ if (idx[h]!=null) row[idx[h]] = v; }
+  set('id', id);
+  set('contactId', data.contactId);
+  set('activityDate', activityDate);
+  set('activityType', data.activityType || '');
+  set('summary', data.summary || '');
+  set('nextActionDate', data.nextActionDate || '');
+  set('createdAt', createdAt);
+  set('createdBy', createdBy);
+  sheet.appendRow(row);
+  // FacilityContacts 側の lastActivityDate 更新 & nextActionDate 反映
+  const fcSheet = ss.getSheetByName('FacilityContacts');
+  if (fcSheet) {
+    const fcRows = fcSheet.getDataRange().getValues();
+    const h2 = fcRows[0];
+    const ix = {}; h2.forEach((h,i)=> ix[h]=i);
+    for (let i=1;i<fcRows.length;i++) {
+      if (String(fcRows[i][ix.id]) === String(data.contactId)) {
+        if (ix.lastActivityDate!=null) fcSheet.getRange(i+1, ix.lastActivityDate+1).setValue(activityDate);
+        if (data.nextActionDate && ix.nextActionDate!=null) fcSheet.getRange(i+1, ix.nextActionDate+1).setValue(data.nextActionDate);
+        break;
+      }
+    }
+  }
+  return { id, createdAt };
+}
+
+// パートナー活動取得（contactId で絞り込み、指定なしで全件）
+function getPartnerActivities(params) {
+  params = params || {};
+  const ss = getSpreadsheet();
+  const sheet = ss.getSheetByName('PartnerActivities');
+  if (!sheet) return [];
+  const rows = sheet.getDataRange().getValues();
+  if (rows.length <= 1) return [];
+  const headers = rows[0];
+  const idx = {}; headers.forEach((h,i)=> idx[h]=i);
+  const list = [];
+  for (let i=1;i<rows.length;i++) {
+    const r = rows[i];
+    const item = {
+      id: r[idx.id],
+      contactId: r[idx.contactId],
+      activityDate: r[idx.activityDate],
+      activityType: r[idx.activityType],
+      summary: r[idx.summary],
+      nextActionDate: idx.nextActionDate!=null ? r[idx.nextActionDate] : '',
+      createdAt: r[idx.createdAt],
+      createdBy: r[idx.createdBy]
+    };
+    if (params.contactId && String(item.contactId) !== String(params.contactId)) continue;
+    list.push(item);
+  }
+  list.sort((a,b)=> (b.activityDate||'').localeCompare(a.activityDate||''));
+  return list;
+}
+
+// 期限が近いパートナーアクション（nextActionDate が今日から horizon 日以内）
+function getUpcomingPartnerActions(horizonDays) {
+  const days = Number(horizonDays || 14);
+  const now = new Date();
+  const contacts = getFacilityContacts({ partnerFlag: true });
+  const upcoming = [];
+  contacts.forEach(c => {
+    if (!c.nextActionDate) return;
+    const dt = new Date(c.nextActionDate);
+    if (isNaN(dt.getTime())) return;
+    const diff = (dt.getTime() - now.getTime()) / 86400000;
+    if (diff >= -0.5 && diff <= days) {
+      upcoming.push({
+        id: c.id,
+        facilityId: c.facilityId,
+        contactName: c.contactName,
+        partnerType: c.partnerType,
+        nextAction: c.nextAction,
+        nextActionDate: c.nextActionDate
+      });
+    }
+  });
+  upcoming.sort((a,b)=> (a.nextActionDate||'').localeCompare(b.nextActionDate||''));
+  return upcoming;
 }
 
 // 名刺画像アップロード用フォルダ取得/作成

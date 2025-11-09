@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+      :root { color-scheme: light dark; }
+      body { font-family: Arial, sans-serif; padding: 24px; }
+      nav a { margin-right: 12px; display:inline-block; padding:6px 8px; }
+      label { display:block; margin-top:12px; }
+      input, select, textarea { width:100%; padding:8px; box-sizing:border-box; }
+      button { margin-top: 12px; padding:8px 14px; }
+      table { width:100%; border-collapse: collapse; margin-top: 16px; }
+      th, td { border-bottom:1px solid #eee; padding:8px; text-align:left; }
+      .muted { color:#666; font-size:12px; }
+      .row { display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+      @media (max-width: 720px) { .row { grid-template-columns: 1fr; } body { padding: 16px; } }
+      @media (prefers-color-scheme: dark) {
+        body { background:#111; color:#eaeaea; }
+        a { color:#8ab4ff; }
+        th, td { border-bottom:1px solid #333; }
+        input, select, textarea { background:#1e1e1e; color:#eaeaea; border:1px solid #333; }
+        button { background:#2a2a2a; color:#eaeaea; border:1px solid #444; }
+      }
+      body.theme-dark { background:#111; color:#eaeaea; }
+      body.theme-dark th, body.theme-dark td { border-bottom:1px solid #333; }
+      body.theme-dark input, body.theme-dark select, body.theme-dark textarea { background:#1e1e1e; color:#eaeaea; border:1px solid #333; }
+      body.theme-dark button { background:#2a2a2a; color:#eaeaea; border:1px solid #444; }
+      body.theme-light { background:#fff; color:#111; }
+      body.theme-light th, body.theme-light td { border-bottom:1px solid #eee; }
+      body.theme-light input, body.theme-light select, body.theme-light textarea { background:#fff; color:#111; border:1px solid #ccc; }
+      body.theme-light button { background:#f5f5f5; color:#111; border:1px solid #ccc; }
+      .pill { display:inline-block; padding:2px 8px; border-radius:999px; font-size:12px; border:1px solid #ccc; }
+      .pill.due { background:#fff3cd; border-color:#ffe69c; color:#8a6d3b; }
+      .pill.overdue { background:#f8d7da; border-color:#f5c2c7; color:#842029; }
+    </style>
+    <script>
+      function applyTheme(pref){ document.body.classList.remove('theme-dark','theme-light'); if(pref==='dark') document.body.classList.add('theme-dark'); if(pref==='light') document.body.classList.add('theme-light'); }
+      function updateThemeButton(pref){ const btn=document.getElementById('themeToggleBtn'); if(!btn) return; btn.textContent= pref==='dark'?'テーマ: ダーク': pref==='light'?'テーマ: ライト':'テーマ: 自動'; }
+      function initTheme(){ const pref=localStorage.getItem('theme')||'system'; applyTheme(pref); updateThemeButton(pref); }
+      function toggleTheme(){ const current=localStorage.getItem('theme')||'system'; const next=current==='system'?'dark': current==='dark'?'light':'system'; localStorage.setItem('theme',next); applyTheme(next); updateThemeButton(next); }
+
+      function escapeHtml(str){ if(!str) return ''; return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+      function toDateStr(d){ if(!d) return ''; try { return new Date(d).toISOString().slice(0,10); } catch(e){ return ''; } }
+      function loadAll(){ loadCandidates(); loadUpcoming(); loadPartners(); }
+
+      function loadCandidates(){
+        const sel = document.getElementById('candidateSelect'); sel.innerHTML = '';
+        google.script.run.withSuccessHandler(function(list){
+          list.forEach(function(c){
+            const opt = document.createElement('option'); opt.value = c.id; opt.textContent = (c.contactName||'(無名)') + ' — ' + (c.facilityId||''); sel.appendChild(opt);
+          });
+        }).getFacilityContacts({});
+      }
+      function addPartner(){
+        const id = document.getElementById('candidateSelect').value; if(!id){ alert('担当者を選択'); return; }
+        google.script.run.withSuccessHandler(function(){ alert('パートナーに追加しました'); loadPartners(); }).updatePartnerContact({ id, partnerFlag: true, partnerType: document.getElementById('candidateType').value });
+      }
+
+      function loadPartners(){
+        google.script.run.withSuccessHandler(function(list){
+          const tbody = document.getElementById('partnersRows');
+          if(!list || list.length===0){ tbody.innerHTML = '<tr><td colspan="8">パートナーが未登録です</td></tr>'; return; }
+          let html='';
+          list.forEach(function(p){
+            html += '<tr>'+
+              '<td>'+escapeHtml(p.facilityName||'')+'</td>'+
+              '<td>'+escapeHtml(p.contactName||'')+'</td>'+
+              '<td>'+escapeHtml(p.partnerType||'')+'</td>'+
+              '<td>'+ (p.referralCount||0) +'</td>'+
+              '<td>'+ escapeHtml(p.lastActivityDate||'') +'</td>'+
+              '<td>'+ escapeHtml(p.nextAction||'') +'</td>'+
+              '<td>'+ escapeHtml(p.nextActionDate||'') +'</td>'+
+              '<td><button onclick="openLog(\''+p.id+'\', \''+escapeHtml(p.contactName)+'\', \''+escapeHtml(p.facilityName)+'\')">接触ログ</button></td>'+
+            '</tr>';
+          });
+          tbody.innerHTML = html;
+        }).getPartnerContacts({});
+      }
+
+      function loadUpcoming(){
+        google.script.run.withSuccessHandler(function(list){
+          const box = document.getElementById('upcomingList');
+          if(!list || list.length===0){ box.innerHTML = '<div class="muted">直近のToDoはありません</div>'; return; }
+          let html='';
+          const today = new Date();
+          list.forEach(function(t){
+            const dt = new Date(t.nextActionDate);
+            const diff = Math.round((dt - today)/86400000);
+            const cls = diff < 0 ? 'pill overdue' : 'pill due';
+            html += '<div style="margin:6px 0;">'+
+              '<span class="'+cls+'">'+ toDateStr(t.nextActionDate) +'</span> '+
+              escapeHtml(t.contactName) + '（' + escapeHtml(t.partnerType||'') + '） ' + escapeHtml(t.nextAction||'') +
+              '</div>';
+          });
+          box.innerHTML = html;
+        }).getUpcomingPartnerActions(14);
+      }
+
+      function openLog(id, contactName, facilityName){
+        document.getElementById('logContactId').value = id;
+        document.getElementById('logTitle').textContent = contactName + '（' + facilityName + '）への接触記録';
+        document.getElementById('logDate').value = new Date().toISOString().slice(0,16);
+        document.getElementById('logPane').style.display = 'block';
+      }
+      function closeLog(){ document.getElementById('logPane').style.display='none'; }
+      function saveLog(){
+        const contactId = document.getElementById('logContactId').value;
+        const activityDate = document.getElementById('logDate').value;
+        const activityType = document.getElementById('logType').value;
+        const summary = document.getElementById('logSummary').value;
+        const nextDays = Number(document.getElementById('logNextDays').value||0);
+        const nextActionDate = nextDays>0 ? new Date(Date.now()+nextDays*86400000).toISOString() : '';
+        google.script.run.withSuccessHandler(function(){
+          alert('接触を記録しました');
+          closeLog(); loadUpcoming(); loadPartners();
+        }).addPartnerActivity({ contactId, activityDate, activityType, summary, nextActionDate });
+      }
+
+      window.addEventListener('load', function(){ initTheme(); loadAll(); });
+    </script>
+  </head>
+  <body>
+    <nav>
+      <a href="<?= ScriptApp.getService().getUrl(); ?>?page=index">メニューに戻る</a>
+      <button id="themeToggleBtn" type="button" style="float:right;" onclick="toggleTheme()">テーマ: 自動</button>
+    </nav>
+
+    <h1>紹介パートナー営業</h1>
+    <p class="muted">継続的な紹介を得るための関係構築（接触ログ・次アクション・ToDo）。</p>
+
+    <section style="border:1px solid #eee; padding:12px; border-radius:6px;">
+      <h3 style="margin-top:0;">今日〜2週間のToDo</h3>
+      <div id="upcomingList"></div>
+    </section>
+
+    <section style="margin-top:16px; border:1px solid #eee; padding:12px; border-radius:6px;">
+      <h3 style="margin-top:0;">担当者をパートナーに追加</h3>
+      <div class="row">
+        <div>
+          <label>担当者</label>
+          <select id="candidateSelect"></select>
+        </div>
+        <div>
+          <label>種別</label>
+          <select id="candidateType">
+            <option value="">-- 選択 --</option>
+            <option value="ケアマネ">ケアマネ</option>
+            <option value="病院(MSW)">病院(MSW)</option>
+            <option value="地域包括">地域包括</option>
+            <option value="相談支援">相談支援</option>
+            <option value="行政">行政</option>
+            <option value="その他">その他</option>
+          </select>
+        </div>
+      </div>
+      <button onclick="addPartner()">パートナーに追加</button>
+    </section>
+
+    <h2 style="margin-top:20px;">パートナー一覧</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>所属(施設)</th>
+          <th>氏名</th>
+          <th>種別</th>
+          <th>紹介実績</th>
+          <th>最終接触</th>
+          <th>次アクション</th>
+          <th>実施予定日</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody id="partnersRows">
+        <tr><td colspan="8">読み込み中...</td></tr>
+      </tbody>
+    </table>
+
+    <!-- 接触ログ モーダル風 -->
+    <div id="logPane" style="display:none; position:fixed; left:0; right:0; top:0; bottom:0; background:rgba(0,0,0,.3);">
+      <div style="max-width:560px; margin:5% auto; background:#fff; color:#111; padding:16px; border-radius:8px;">
+        <h3 id="logTitle" style="margin-top:0;">接触記録</h3>
+        <input type="hidden" id="logContactId">
+        <div class="row">
+          <div>
+            <label>日時</label>
+            <input id="logDate" type="datetime-local">
+          </div>
+          <div>
+            <label>種別</label>
+            <select id="logType">
+              <option value="訪問">訪問</option>
+              <option value="電話">電話</option>
+              <option value="メール">メール</option>
+              <option value="イベント">イベント</option>
+            </select>
+          </div>
+        </div>
+        <label>概要</label>
+        <input id="logSummary" type="text" placeholder="例: 事例共有・勉強会案内など">
+        <div class="row">
+          <div>
+            <label>次回までの日数（任意）</label>
+            <input id="logNextDays" type="number" min="0" placeholder="例: 14">
+          </div>
+        </div>
+        <div style="text-align:right; margin-top:12px;">
+          <button onclick="closeLog()">キャンセル</button>
+          <button onclick="saveLog()">保存</button>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
