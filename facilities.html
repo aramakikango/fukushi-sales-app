@@ -28,6 +28,7 @@
           alert('施設を登録しました');
           document.getElementById('facilityForm').reset();
           loadFacilities();
+          loadFacilitiesIntoContactSelect();
         }).addFacility(data);
       }
 
@@ -52,7 +53,68 @@
         return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
       }
 
-      window.addEventListener('load', loadFacilities);
+      // 施設一覧を担当者用セレクトに投入
+      function loadFacilitiesIntoContactSelect() {
+        const sel = document.getElementById('contactFacilitySelect');
+        if (!sel) return;
+        sel.innerHTML = '<option value="">-- 施設を選択 --</option>';
+        google.script.run.withSuccessHandler(function(list) {
+          list.forEach(function(f) {
+            const opt = document.createElement('option');
+            opt.value = f.id;
+            opt.textContent = f.name + (f.address ? ' — ' + f.address : '');
+            sel.appendChild(opt);
+          });
+        }).getFacilities();
+      }
+
+      function submitFacilityContact() {
+        const facilityId = document.getElementById('contactFacilitySelect').value;
+        if (!facilityId) { alert('施設を選択してください'); return; }
+        const contactName = document.getElementById('contactNameInput').value.trim();
+        const contactPhone = document.getElementById('contactPhoneInput').value.trim();
+        const contactNotes = document.getElementById('contactNotesInput').value.trim();
+        if (!contactName) { alert('担当者名を入力してください'); return; }
+        google.script.run.withSuccessHandler(function() {
+          document.getElementById('contactNameInput').value = '';
+          document.getElementById('contactPhoneInput').value = '';
+          document.getElementById('contactNotesInput').value = '';
+          loadFacilityContacts(facilityId);
+          alert('担当者を追加しました');
+        }).addFacilityContact({ facilityId: facilityId, contactName: contactName, contactPhone: contactPhone, contactNotes: contactNotes });
+      }
+
+      function loadFacilityContacts(facilityId) {
+        const tbody = document.getElementById('facilityContactRows');
+        if (!facilityId) {
+          tbody.innerHTML = '<tr><td colspan="3">施設を選択してください</td></tr>';
+          return;
+        }
+        google.script.run.withSuccessHandler(function(list) {
+          if (!list || list.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="3">担当者はまだ登録されていません</td></tr>';
+            return;
+          }
+          let html = '';
+          list.forEach(function(c){
+            html += '<tr><td>' + escapeHtml(c.contactName || '') + '</td>' +
+                    '<td>' + escapeHtml(c.contactPhone || '') + '</td>' +
+                    '<td>' + escapeHtml(c.contactNotes || '') + '</td>' +
+                    '<td>' + escapeHtml(c.createdAt || '') + '</td></tr>';
+          });
+          tbody.innerHTML = html;
+        }).getFacilityContacts({ facilityId: facilityId });
+      }
+
+      window.addEventListener('load', function() {
+        loadFacilities();
+        loadFacilitiesIntoContactSelect();
+        document.getElementById('contactFacilitySelect').addEventListener('change', function(){
+          const has = !!this.value;
+          document.getElementById('contactEntry').style.display = has ? 'block' : 'none';
+          loadFacilityContacts(this.value);
+        });
+      });
     </script>
   </head>
   <body>
@@ -86,6 +148,31 @@
       </thead>
       <tbody id="facilityRows">
         <tr><td colspan="4">読み込み中...</td></tr>
+      </tbody>
+    </table>
+
+    <h2>施設担当者の追加</h2>
+    <p style="margin-top:8px;">施設を選択して担当者を登録できます。既存担当者一覧は施設選択で表示されます。</p>
+    <label for="contactFacilitySelect">施設選択</label>
+    <select id="contactFacilitySelect" style="width:100%; padding:6px;">
+      <option value="">-- 施設を選択 --</option>
+    </select>
+    <div id="contactEntry" style="display:none; margin-top:12px;">
+      <label for="contactNameInput">担当者名</label>
+      <input type="text" id="contactNameInput" placeholder="担当者名" />
+      <label for="contactPhoneInput">担当者電話</label>
+      <input type="text" id="contactPhoneInput" placeholder="電話番号" />
+      <label for="contactNotesInput">担当者備考</label>
+      <textarea id="contactNotesInput" rows="3" placeholder="例: 怖い、男性好きなどメモ"></textarea>
+      <button type="button" onclick="submitFacilityContact()">担当者を追加</button>
+    </div>
+    <h3 style="margin-top:24px;">施設担当者一覧</h3>
+    <table>
+      <thead>
+        <tr><th>担当者名</th><th>電話</th><th>備考</th><th>登録日時</th></tr>
+      </thead>
+      <tbody id="facilityContactRows">
+        <tr><td colspan="4">施設を選択してください</td></tr>
       </tbody>
     </table>
   </body>

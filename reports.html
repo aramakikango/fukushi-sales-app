@@ -17,6 +17,8 @@
         const facilityId = document.getElementById('reportFacility').value;
         const reporterSelect = document.getElementById('reporterSelect');
         const reporterName = reporterSelect && reporterSelect.value ? reporterSelect.options[reporterSelect.selectedIndex].text : '';
+        const contactSelect = document.getElementById('contactSelect');
+        const contactName = contactSelect && contactSelect.value ? contactSelect.options[contactSelect.selectedIndex].text : '';
         const channelSelect = document.getElementById('channelSelect');
         let channel = channelSelect.value;
         if (channel === 'その他') {
@@ -30,6 +32,7 @@
           reporterName: reporterName,
           reporterEmail: '',
           channel: channel,
+          contactName: contactName,
           summary: document.getElementById('summary').value,
           details: document.getElementById('details').value,
           followUp: document.getElementById('followUp').value
@@ -45,6 +48,7 @@
           // 選択リセット
           if (reporterSelect) reporterSelect.selectedIndex = 0;
           if (channelSelect) channelSelect.selectedIndex = 0;
+          if (contactSelect) contactSelect.selectedIndex = 0;
           document.getElementById('channelOtherWrap').style.display = 'none';
         }).addReport(data);
       }
@@ -64,13 +68,13 @@
 
       function loadReports(facilityId) {
         if (!facilityId) {
-          document.getElementById('reportRows').innerHTML = '<tr><td colspan="5">施設を選択してください</td></tr>';
+          document.getElementById('reportRows').innerHTML = '<tr><td colspan="6">施設を選択してください</td></tr>';
           return;
         }
         google.script.run.withSuccessHandler(function(list) {
           const tbody = document.getElementById('reportRows');
           if (!list || list.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5">営業報告はありません</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6">営業報告はありません</td></tr>';
             return;
           }
           let html = '';
@@ -78,6 +82,7 @@
             html += '<tr><td>' + escapeHtml(r.reportDate || r.createdAt) + '</td>' +
                     '<td>' + escapeHtml(r.channel || '') + '</td>' +
                     '<td>' + escapeHtml(r.summary) + '</td>' +
+                    '<td>' + escapeHtml(r.contactName || '') + '</td>' +
                     '<td>' + escapeHtml(r.reporterName || r.createdBy || '') + '</td>' +
                     '<td>' + escapeHtml(r.details || '') + '<br><em>' + escapeHtml(r.followUp || '') + '</em></td></tr>';
           });
@@ -104,12 +109,43 @@
         }).getEmployees();
       }
 
+      function loadContactsForFacility(facilityId) {
+        const sel = document.getElementById('contactSelect');
+        if (!sel) return;
+        sel.innerHTML = '<option value="">-- 担当者を選択 --</option>';
+        sel.disabled = true;
+        const infoBox = document.getElementById('contactInfoBox');
+        if (infoBox) infoBox.textContent = '';
+        if (!facilityId) return;
+        google.script.run.withSuccessHandler(function(list) {
+          list.forEach(function(c) {
+            const opt = document.createElement('option');
+            opt.value = c.id;
+            opt.textContent = c.contactName || '';
+            opt.setAttribute('data-notes', c.contactNotes || '');
+            sel.appendChild(opt);
+          });
+          sel.disabled = false;
+        }).getFacilityContacts({ facilityId: facilityId });
+      }
+      function showSelectedContactNotes() {
+        const sel = document.getElementById('contactSelect');
+        const infoBox = document.getElementById('contactInfoBox');
+        if (!sel || !infoBox) return;
+        const opt = sel.options[sel.selectedIndex];
+        if (!opt || !opt.value) { infoBox.textContent = ''; return; }
+        const notes = opt.getAttribute('data-notes') || '';
+        infoBox.textContent = notes ? ('備考: ' + notes) : '';
+      }
+
       window.addEventListener('load', function() {
         loadFacilities();
         loadEmployeesForReporter();
         document.getElementById('reportFacility').addEventListener('change', function() {
           loadReports(this.value);
+          loadContactsForFacility(this.value);
         });
+          document.getElementById('contactSelect').addEventListener('change', showSelectedContactNotes);
         document.getElementById('channelSelect').addEventListener('change', function(){
           if (this.value === 'その他') {
             document.getElementById('channelOtherWrap').style.display = 'block';
@@ -151,6 +187,11 @@
         <label for="channelOther">その他詳細</label>
         <input type="text" id="channelOther" placeholder="具体的な方法を記載">
       </div>
+      <label for="contactSelect">対応担当者（施設担当者）</label>
+      <select id="contactSelect" disabled>
+        <option value="">-- 施設を先に選択 --</option>
+      </select>
+      <div id="contactInfoBox" style="margin:4px 0 12px; font-size:13px; color:#555;"></div>
       <label for="reporterSelect">報告者（社員）</label>
       <select id="reporterSelect" required>
         <option value="">-- 読み込み中 --</option>
@@ -167,10 +208,10 @@
     <h2>施設別の営業報告</h2>
     <table>
       <thead>
-        <tr><th>報告日時</th><th>方法</th><th>要約</th><th>報告者</th><th>詳細 / フォローアップ</th></tr>
+        <tr><th>報告日時</th><th>方法</th><th>要約</th><th>担当者</th><th>報告者</th><th>詳細 / フォローアップ</th></tr>
       </thead>
       <tbody id="reportRows">
-        <tr><td colspan="5">施設を選択してください</td></tr>
+        <tr><td colspan="6">施設を選択してください</td></tr>
       </tbody>
     </table>
   </body>
