@@ -90,19 +90,70 @@
           return;
         }
         google.script.run.withSuccessHandler(function(list) {
-          if (!list || list.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="3">担当者はまだ登録されていません</td></tr>';
-            return;
-          }
-          let html = '';
-          list.forEach(function(c){
-            html += '<tr><td>' + escapeHtml(c.contactName || '') + '</td>' +
-                    '<td>' + escapeHtml(c.contactPhone || '') + '</td>' +
-                    '<td>' + escapeHtml(c.contactNotes || '') + '</td>' +
-                    '<td>' + escapeHtml(c.createdAt || '') + '</td></tr>';
-          });
-          tbody.innerHTML = html;
+          window._contactsCache = list || [];
+          renderContactTable();
         }).getFacilityContacts({ facilityId: facilityId });
+      }
+
+      function renderContactTable() {
+        const tbody = document.getElementById('facilityContactRows');
+        const kw = (document.getElementById('contactFilter')?.value || '').toLowerCase();
+        const list = (window._contactsCache || []).filter(function(c){
+          if (!kw) return true;
+          const hay = ((c.contactName||'') + ' ' + (c.contactNotes||'')).toLowerCase();
+          return hay.includes(kw);
+        });
+        if (!list || list.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5">担当者はまだ登録されていません</td></tr>';
+          return;
+        }
+        let html = '';
+        list.forEach(function(c){
+          html += '<tr id="row-'+ c.id +'">'
+               + '<td class="c-name">' + escapeHtml(c.contactName || '') + '</td>'
+               + '<td class="c-phone">' + escapeHtml(c.contactPhone || '') + '</td>'
+               + '<td class="c-notes">' + escapeHtml(c.contactNotes || '') + '</td>'
+               + '<td>' + escapeHtml(c.createdAt || '') + '</td>'
+               + '<td class="c-actions">'
+               +   '<button type="button" onclick="editContact(\''+ c.id +'\')">編集</button> '
+               +   '<button type="button" onclick="deleteContact(\''+ c.id +'\')">削除</button>'
+               + '</td>'
+               + '</tr>';
+        });
+        tbody.innerHTML = html;
+      }
+
+      function editContact(id) {
+        const tr = document.getElementById('row-' + id);
+        if (!tr) return;
+        const name = tr.querySelector('.c-name').textContent;
+        const phone = tr.querySelector('.c-phone').textContent;
+        const notes = tr.querySelector('.c-notes').textContent;
+        tr.querySelector('.c-name').innerHTML = '<input id="e-name-'+id+'" type="text" value="' + name.replace(/"/g,'&quot;') + '">';
+        tr.querySelector('.c-phone').innerHTML = '<input id="e-phone-'+id+'" type="text" value="' + phone.replace(/"/g,'&quot;') + '">';
+        tr.querySelector('.c-notes').innerHTML = '<textarea id="e-notes-'+id+'" rows="2">' + notes.replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</textarea>';
+        tr.querySelector('.c-actions').innerHTML = '<button type="button" onclick="saveContact(\''+id+'\')">保存</button> <button type="button" onclick="cancelEditContact(\''+id+'\')">キャンセル</button>';
+      }
+
+      function cancelEditContact(id) { loadFacilityContacts(document.getElementById('contactFacilitySelect').value); }
+
+      function saveContact(id) {
+        const name = document.getElementById('e-name-'+id).value.trim();
+        const phone = document.getElementById('e-phone-'+id).value.trim();
+        const notes = document.getElementById('e-notes-'+id).value.trim();
+        if (!name) { alert('担当者名は必須です'); return; }
+        google.script.run.withSuccessHandler(function(){
+          const fid = document.getElementById('contactFacilitySelect').value;
+          loadFacilityContacts(fid);
+        }).updateFacilityContact({ id: id, contactName: name, contactPhone: phone, contactNotes: notes });
+      }
+
+      function deleteContact(id) {
+        if (!confirm('この担当者を削除します。よろしいですか？')) return;
+        google.script.run.withSuccessHandler(function(){
+          const fid = document.getElementById('contactFacilitySelect').value;
+          loadFacilityContacts(fid);
+        }).deleteFacilityContact(id);
       }
 
       window.addEventListener('load', function() {
@@ -154,6 +205,10 @@
     <select id="contactFacilitySelect" style="width:100%; padding:6px;">
       <option value="">-- 施設を選択 --</option>
     </select>
+    <div style="margin-top:8px;">
+      <label for="contactFilter">担当者フィルター（氏名・備考）</label>
+      <input type="text" id="contactFilter" placeholder="キーワードで絞り込み" oninput="renderContactTable()" />
+    </div>
     <div id="contactEntry" style="display:none; margin-top:12px;">
       <label for="contactNameInput">担当者名</label>
       <input type="text" id="contactNameInput" placeholder="担当者名" />

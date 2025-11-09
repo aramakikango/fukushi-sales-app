@@ -90,6 +90,60 @@ function setupSheets() {
       }
     }
   }
+  // 施設の旧 contact 列から FacilityContacts へ自動移行（必要な場合のみ）
+  try { migrateFacilityContactsFromFacilities(); } catch (e) { Logger.log('[migrate][WARN] %s', e && e.message); }
+}
+
+// Facilities シートの contact 列にある値を FacilityContacts に移行し、元セルは空にします
+function migrateFacilityContactsFromFacilities() {
+  const ss = getSpreadsheet();
+  const fac = ss.getSheetByName('Facilities');
+  const con = ss.getSheetByName('FacilityContacts');
+  if (!fac || !con) return;
+  const fRows = fac.getDataRange().getValues();
+  if (fRows.length <= 1) return;
+  const fHeaders = fRows[0];
+  const idIdx = fHeaders.indexOf('id');
+  const contactIdx = fHeaders.indexOf('contact');
+  if (idIdx === -1 || contactIdx === -1) return; // 移行対象無し
+  const now = nowIso();
+  const by = activeUserEmail();
+  let wrote = false;
+
+  // 既存の FacilityContacts を取得して重複を避ける
+  const cRows = con.getDataRange().getValues();
+  const existing = new Set();
+  for (let i = 1; i < cRows.length; i++) {
+    const r = cRows[i];
+    existing.add(String(r[1]) + '::' + String(r[2])); // facilityId::contactName
+  }
+
+  for (let i = 1; i < fRows.length; i++) {
+    const r = fRows[i];
+    const facilityId = String(r[idIdx] || '');
+    const contactName = String(r[contactIdx] || '').trim();
+    if (!facilityId || !contactName) continue;
+    const key = facilityId + '::' + contactName;
+    if (existing.has(key)) {
+      // すでにある場合は Facilities 側だけ空にする
+      fac.getRange(i + 1, contactIdx + 1).setValue('');
+      continue;
+    }
+    // 追記
+    con.appendRow([
+      makeId('FC'),
+      facilityId,
+      contactName,
+      '', // phone 不明
+      '', // notes 空
+      now,
+      by
+    ]);
+    // 元の contact を空に
+    fac.getRange(i + 1, contactIdx + 1).setValue('');
+    wrote = true;
+  }
+  if (wrote) Logger.log('[migrate] Facilities.contact を FacilityContacts へ移行しました');
 }
 
 function nowIso() {
@@ -212,54 +266,59 @@ function addReport(data) {
   const createdAt = nowIso();
   const createdBy = activeUserEmail();
   const reportDate = normalizeDate(data.reportDate, createdAt);
-  // ヘッダ確認（channel 無ければ追加）
-  const headers = sheet.getRange(1,1,1,sheet.getLastColumn()).getValues()[0];
-  if (headers.indexOf('channel') === -1) {
-    sheet.insertColumnBefore(6);
-    sheet.getRange(1,6).setValue('channel');
-  }
-  // contactName 列（followUp の後ろ）追加
-  if (headers.indexOf('contactName') === -1) {
-    // 現在のヘッダ再取得（channel追加後の状態を反映）
-    const updatedHeaders = sheet.getRange(1,1,1,sheet.getLastColumn()).getValues()[0];
-    // followUp の位置を探してその次に挿入
-    const followIdx = updatedHeaders.indexOf('followUp');
-    if (followIdx !== -1) {
-      sheet.insertColumnAfter(followIdx + 1); // 1-based
-      sheet.getRange(1, followIdx + 2).setValue('contactName');
-    } else {
-      // fallback: 末尾に追加
-      sheet.insertColumnAfter(sheet.getLastColumn());
-      sheet.getRange(1, sheet.getLastColumn()).setValue('contactName');
+  // ヘッダ確認と不足列追加（channel / contactId / contactName）
+  const ensureHeaders = () => {
+    let headers = sheet.getRange(1,1,1,sheet.getLastColumn()).getValues()[0];
+    if (headers.indexOf('channel') === -1) {
+      sheet.insertColumnBefore(6);
+      sheet.getRange(1,6).setValue('channel');
+      headers = sheet.getRange(1,1,1,sheet.getLastColumn()).getValues()[0];
     }
-  }
-  const finalHeaders = sheet.getRange(1,1,1,sheet.getLastColumn()).getValues()[0];
-  const idx = {};
-  finalHeaders.forEach((h,i)=> idx[h]=i);
-  const row = [
-    id,
-    data.facilityId,
-    reportDate,
-    data.reporterName || '',
-    data.reporterEmail || '',
-    (data.channel || ''),
-    data.summary || '',
-    data.details || '',
-    data.followUp || '',
-    createdAt,
-    createdBy
-  ];
-  // contactName を適切な位置に挿入（存在する場合）
-  if (idx.contactName != null) {
-    // 現在 row は旧ヘッダ順。contactName は followUp の後ろ: 既存 row 末尾にある createdAt/createdBy を一旦保持し挿入。
-    // 求める並び: ... followUp, contactName, createdAt, createdBy
-    const createdAtVal = row[row.length-2];
-    const createdByVal = row[row.length-1];
-    // remove last two
-    row.splice(row.length-2,2);
-    row.push(data.contactName || '');
-    row.push(createdAtVal, createdByVal);
-  }
+    // followUp の直後に contactId, contactName を並べる
+    let updated = headers.slice();
+    const followIdx = updated.indexOf('followUp');
+    if (updated.indexOf('contactId') === -1) {
+      if (followIdx !== -1) {
+        sheet.insertColumnAfter(followIdx + 1);
+        sheet.getRange(1, followIdx + 2).setValue('contactId');
+      } else {
+        sheet.insertColumnAfter(sheet.getLastColumn());
+        sheet.getRange(1, sheet.getLastColumn()).setValue('contactId');
+      }
+      updated = sheet.getRange(1,1,1,sheet.getLastColumn()).getValues()[0];
+    }
+    if (updated.indexOf('contactName') === -1) {
+      const idxContactId = updated.indexOf('contactId');
+      if (idxContactId !== -1) {
+        sheet.insertColumnAfter(idxContactId + 1);
+        sheet.getRange(1, idxContactId + 2).setValue('contactName');
+      } else if (followIdx !== -1) {
+        sheet.insertColumnAfter(followIdx + 1);
+        sheet.getRange(1, followIdx + 2).setValue('contactName');
+      } else {
+        sheet.insertColumnAfter(sheet.getLastColumn());
+        sheet.getRange(1, sheet.getLastColumn()).setValue('contactName');
+      }
+    }
+  };
+  ensureHeaders();
+  const headers = sheet.getRange(1,1,1,sheet.getLastColumn()).getValues()[0];
+  const idx = {}; headers.forEach((h,i)=> idx[h]=i);
+  const row = new Array(headers.length).fill('');
+  function set(h, val) { if (idx[h] != null) row[idx[h]] = val; }
+  set('id', id);
+  set('facilityId', data.facilityId);
+  set('reportDate', reportDate);
+  set('reporterName', data.reporterName || '');
+  set('reporterEmail', data.reporterEmail || '');
+  set('channel', data.channel || '');
+  set('summary', data.summary || '');
+  set('details', data.details || '');
+  set('followUp', data.followUp || '');
+  set('contactId', data.contactId || '');
+  set('contactName', data.contactName || '');
+  set('createdAt', createdAt);
+  set('createdBy', createdBy);
   sheet.appendRow(row);
   return { id, createdAt };
 }
@@ -290,6 +349,7 @@ function getReports(params) {
       followUp: r[idx.followUp] || r[7],
       createdAt: r[idx.createdAt] || r[8],
       createdBy: r[idx.createdBy] || r[9],
+      contactId: idx.contactId != null ? r[idx.contactId] : '',
       contactName: idx.contactName != null ? r[idx.contactName] : ''
     };
     if (params.facilityId && item.facilityId !== params.facilityId) continue;
@@ -309,10 +369,48 @@ function getReports(params) {
 // 営業報告をCSV文字列としてエクスポート
 function exportReportsCsv(params) {
   const reports = getReports(params);
-  const headers = ['id','facilityId','reportDate','reporterName','reporterEmail','channel','summary','details','followUp','contactName','createdAt','createdBy'];
+  const headers = ['id','facilityId','reportDate','reporterName','reporterEmail','channel','summary','details','followUp','contactId','contactName','createdAt','createdBy'];
   const body = reports.map(r => headers.map(h => (r[h] || '').toString().replace(/\r?\n/g, ' ').replace(/"/g, '""')));
   const csv = [headers.join(',')].concat(body.map(row => '"' + row.join('","') + '"')).join('\n');
   return csv;
+}
+
+// 施設担当者の更新
+function updateFacilityContact(data) {
+  if (!data || !data.id) throw new Error('id は必須です');
+  const ss = getSpreadsheet();
+  const sheet = ss.getSheetByName('FacilityContacts');
+  if (!sheet) throw new Error('FacilityContacts シートがありません');
+  const rows = sheet.getDataRange().getValues();
+  const headers = rows[0];
+  const idx = {}; headers.forEach((h,i)=> idx[h]=i);
+  let target = -1;
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][idx.id]) === String(data.id)) { target = i; break; }
+  }
+  if (target === -1) throw new Error('指定IDの担当者が見つかりません');
+  if (idx.contactName != null) sheet.getRange(target+1, idx.contactName+1).setValue(data.contactName || '');
+  if (idx.contactPhone != null) sheet.getRange(target+1, idx.contactPhone+1).setValue(data.contactPhone || '');
+  if (idx.contactNotes != null) sheet.getRange(target+1, idx.contactNotes+1).setValue(data.contactNotes || '');
+  return { id: data.id };
+}
+
+// 施設担当者の削除
+function deleteFacilityContact(id) {
+  if (!id) throw new Error('id は必須です');
+  const ss = getSpreadsheet();
+  const sheet = ss.getSheetByName('FacilityContacts');
+  if (!sheet) throw new Error('FacilityContacts シートがありません');
+  const rows = sheet.getDataRange().getValues();
+  const headers = rows[0];
+  const idx = {}; headers.forEach((h,i)=> idx[h]=i);
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][idx.id]) === String(id)) {
+      sheet.deleteRow(i+1);
+      return { id: id };
+    }
+  }
+  throw new Error('指定IDの担当者が見つかりません');
 }
 
 // 施設担当者追加

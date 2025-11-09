@@ -17,8 +17,9 @@
         const facilityId = document.getElementById('reportFacility').value;
         const reporterSelect = document.getElementById('reporterSelect');
         const reporterName = reporterSelect && reporterSelect.value ? reporterSelect.options[reporterSelect.selectedIndex].text : '';
-        const contactSelect = document.getElementById('contactSelect');
-        const contactName = contactSelect && contactSelect.value ? contactSelect.options[contactSelect.selectedIndex].text : '';
+  const contactSelect = document.getElementById('contactSelect');
+  const contactId = contactSelect && contactSelect.value ? contactSelect.value : '';
+  const contactName = contactSelect && contactSelect.value ? contactSelect.options[contactSelect.selectedIndex].text : '';
         const channelSelect = document.getElementById('channelSelect');
         let channel = channelSelect.value;
         if (channel === 'その他') {
@@ -32,6 +33,7 @@
           reporterName: reporterName,
           reporterEmail: '',
           channel: channel,
+          contactId: contactId,
           contactName: contactName,
           summary: document.getElementById('summary').value,
           details: document.getElementById('details').value,
@@ -79,7 +81,7 @@
           }
           let html = '';
           list.forEach(function(r) {
-            html += '<tr><td>' + escapeHtml(r.reportDate || r.createdAt) + '</td>' +
+      html += '<tr><td>' + escapeHtml(r.reportDate || r.createdAt) + '</td>' +
                     '<td>' + escapeHtml(r.channel || '') + '</td>' +
                     '<td>' + escapeHtml(r.summary) + '</td>' +
                     '<td>' + escapeHtml(r.contactName || '') + '</td>' +
