@@ -53,7 +53,7 @@ function setupSheets() {
   const ss = getSpreadsheet();
   const names = ss.getSheets().map(s => s.getName());
   if (!names.includes('Facilities')) {
-    ss.insertSheet('Facilities').appendRow(['id','name','address','phone','contact','notes','createdAt','createdBy']);
+    ss.insertSheet('Facilities').appendRow(['id','name','prefecture','municipality','facilityType','address','phone','notes','createdAt','createdBy']);
   }
   if (!names.includes('Visits')) {
     ss.insertSheet('Visits').appendRow(['id','facilityId','visitDate','visitorName','visitorEmail','purpose','notes','createdAt','createdBy']);
@@ -102,8 +102,72 @@ function setupSheets() {
       }
     }
   }
+  // 市区町村マスタ
+  if (!names.includes('Municipalities')) {
+    ss.insertSheet('Municipalities').appendRow(['prefecture','municipality']);
+  }
+  // 既存Facilitiesに新列が無ければ挿入（名前の後ろに順番）
+  const facSheet = ss.getSheetByName('Facilities');
+  if (facSheet) {
+    const facHeaders = facSheet.getRange(1,1,1,facSheet.getLastColumn()).getValues()[0];
+    const ensureCol = (colName, afterName) => {
+      if (facHeaders.indexOf(colName) === -1) {
+        const afterIdx = facHeaders.indexOf(afterName);
+        if (afterIdx !== -1) {
+          facSheet.insertColumnAfter(afterIdx + 1);
+          facSheet.getRange(1, afterIdx + 2).setValue(colName);
+        } else {
+          facSheet.insertColumnAfter(facSheet.getLastColumn());
+          facSheet.getRange(1, facSheet.getLastColumn()).setValue(colName);
+        }
+        // ヘッダ再取得
+        facHeaders.splice(0, facHeaders.length, ...facSheet.getRange(1,1,1,facSheet.getLastColumn()).getValues()[0]);
+      }
+    };
+    ensureCol('prefecture', 'name');
+    ensureCol('municipality', 'prefecture');
+    ensureCol('facilityType', 'municipality');
+  }
   // 施設の旧 contact 列から FacilityContacts へ自動移行（必要な場合のみ）
   try { migrateFacilityContactsFromFacilities(); } catch (e) { Logger.log('[migrate][WARN] %s', e && e.message); }
+}
+
+// 市区町村マスタ取得（prefecture で絞り込み）
+function getMunicipalities(params) {
+  params = params || {};
+  const ss = getSpreadsheet();
+  const sheet = ss.getSheetByName('Municipalities');
+  if (!sheet) return [];
+  const rows = sheet.getDataRange().getValues();
+  const list = [];
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i];
+    const item = { prefecture: r[0], municipality: r[1] };
+    if (params.prefecture && item.prefecture !== params.prefecture) continue;
+    list.push(item);
+  }
+  // 重複除去・ソート
+  const seen = new Set();
+  const uniq = [];
+  list.forEach(it => { const k = it.municipality; if (!seen.has(k)) { seen.add(k); uniq.push(it); } });
+  uniq.sort((a,b)=> a.municipality.localeCompare(b.municipality));
+  return uniq;
+}
+
+// 市区町村マスタに追加（単純追加・重複はスキップ）
+function addMunicipality(data) {
+  if (!data || !data.prefecture || !data.municipality) throw new Error('prefecture, municipality は必須です');
+  const ss = getSpreadsheet();
+  const sheet = ss.getSheetByName('Municipalities');
+  if (!sheet) throw new Error('Municipalities シートが見つかりません');
+  const rows = sheet.getDataRange().getValues();
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) === String(data.prefecture) && String(rows[i][1]) === String(data.municipality)) {
+      return { ok: true, existed: true };
+    }
+  }
+  sheet.appendRow([data.prefecture, data.municipality]);
+  return { ok: true, existed: false };
 }
 
 // Facilities シートの contact 列にある値を FacilityContacts に移行し、元セルは空にします
@@ -195,7 +259,22 @@ function addFacility(data) {
   const id = makeId('FAC');
   const createdAt = nowIso();
   const createdBy = activeUserEmail();
-  sheet.appendRow([id, data.name || '', data.address || '', data.phone || '', data.contact || '', data.notes || '', createdAt, createdBy]);
+  // ヘッダ駆動で行を構築
+  const headers = sheet.getRange(1,1,1,sheet.getLastColumn()).getValues()[0];
+  const idx = {}; headers.forEach((h,i)=> idx[h]=i);
+  const row = new Array(headers.length).fill('');
+  function set(h, v){ if (idx[h]!=null) row[idx[h]] = v; }
+  set('id', id);
+  set('name', data.name || '');
+  set('prefecture', data.prefecture || '');
+  set('municipality', data.municipality || '');
+  set('facilityType', data.facilityType || '');
+  set('address', data.address || '');
+  set('phone', data.phone || '');
+  set('notes', data.notes || '');
+  set('createdAt', createdAt);
+  set('createdBy', createdBy);
+  sheet.appendRow(row);
   return { id, createdAt };
 }
 
@@ -205,10 +284,22 @@ function getFacilities() {
   const sheet = ss.getSheetByName('Facilities');
   if (!sheet) return [];
   const rows = sheet.getDataRange().getValues();
+  if (!rows.length) return [];
+  const headers = rows[0];
+  const idx = {}; headers.forEach((h,i)=> idx[h]=i);
   const list = [];
   for (let i = 1; i < rows.length; i++) {
     const r = rows[i];
-    list.push({ id: r[0], name: r[1], address: r[2], phone: r[3], contact: r[4], notes: r[5] });
+    list.push({
+      id: r[idx.id] || r[0],
+      name: r[idx.name] || r[1],
+      prefecture: idx.prefecture!=null ? r[idx.prefecture] : '',
+      municipality: idx.municipality!=null ? r[idx.municipality] : '',
+      facilityType: idx.facilityType!=null ? r[idx.facilityType] : '',
+      address: r[idx.address] != null ? r[idx.address] : r[2],
+      phone: r[idx.phone] != null ? r[idx.phone] : r[3],
+      notes: idx.notes!=null ? r[idx.notes] : r[5]
+    });
   }
   return list;
 }

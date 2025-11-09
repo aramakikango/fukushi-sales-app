@@ -16,11 +16,25 @@
       function submitFacility() {
         const data = {
           name: document.getElementById('name').value,
+          prefecture: document.getElementById('prefectureSelect').value,
+          municipality: document.getElementById('municipalitySelect').value,
+          facilityType: (function(){
+            const sel = document.getElementById('facilityTypeSelect');
+            if (sel.value === 'その他') {
+              const other = document.getElementById('facilityTypeOther').value.trim();
+              if (!other) { alert('その他詳細を入力してください'); throw new Error('missing facilityTypeOther'); }
+              return 'その他:' + other;
+            }
+            return sel.value;
+          })(),
           address: document.getElementById('address').value,
           phone: document.getElementById('phone').value,
           notes: document.getElementById('notes').value
         };
         if (!data.name) { alert('施設名を入力してください'); return; }
+        if (!data.prefecture) { alert('都道府県を選択してください'); return; }
+        if (!data.municipality) { alert('市区町村を選択してください'); return; }
+        if (!data.facilityType) { alert('事業所種類を選択してください'); return; }
         if (!data.address) { alert('住所を入力してください'); return; }
         if (!data.phone) { alert('電話番号を入力してください'); return; }
         google.script.run.withSuccessHandler(function() {
@@ -35,17 +49,61 @@
         google.script.run.withSuccessHandler(function(list) {
           const tbody = document.getElementById('facilityRows');
           if (!list || list.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="3">登録された施設はまだありません</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6">登録された施設はまだありません</td></tr>';
             return;
           }
           let html = '';
           list.forEach(function(f) {
-            html += '<tr><td>' + escapeHtml(f.name) + '</td><td>' + escapeHtml(f.address) +
-                    '</td><td>' + escapeHtml(f.phone || '') + '</td></tr>';
+            html += '<tr><td>' + escapeHtml(f.name) + '</td>' +
+                    '<td>' + escapeHtml(f.prefecture || '') + '</td>' +
+                    '<td>' + escapeHtml(f.municipality || '') + '</td>' +
+                    '<td>' + escapeHtml(f.facilityType || '') + '</td>' +
+                    '<td>' + escapeHtml(f.address) + '</td>' +
+                    '<td>' + escapeHtml(f.phone || '') + '</td></tr>';
           });
           tbody.innerHTML = html;
         }).getFacilities();
       }
+      function loadMunicipalities(pref) {
+        const sel = document.getElementById('municipalitySelect');
+        sel.innerHTML = '<option value="">読み込み中...</option>';
+        if (!pref) { sel.innerHTML = '<option value="">-- 先に都道府県を選択 --</option>'; return; }
+        google.script.run.withSuccessHandler(function(list) {
+          sel.innerHTML = '<option value="">-- 市区町村を選択 --</option>';
+          list.forEach(function(m) {
+            const opt = document.createElement('option');
+            opt.value = m.municipality;
+            opt.textContent = m.municipality;
+            sel.appendChild(opt);
+          });
+        }).getMunicipalities({ prefecture: pref });
+      }
+
+      function addMunicipalityEntry() {
+        const pref = document.getElementById('prefectureSelect').value;
+        const mun = document.getElementById('municipalityNew').value.trim();
+        if (!pref) { alert('先に都道府県を選択してください'); return; }
+        if (!mun) { alert('市区町村名を入力してください'); return; }
+        google.script.run.withSuccessHandler(function(res){
+          document.getElementById('municipalityNew').value = '';
+          loadMunicipalities(pref);
+          alert(res.existed ? '既に登録されています' : '市区町村を追加しました');
+        }).addMunicipality({ prefecture: pref, municipality: mun });
+      }
+
+      window.addEventListener('load', function(){
+        document.getElementById('prefectureSelect').addEventListener('change', function(){
+          loadMunicipalities(this.value);
+        });
+        document.getElementById('facilityTypeSelect').addEventListener('change', function(){
+          if (this.value === 'その他') {
+            document.getElementById('facilityTypeOtherWrap').style.display = 'block';
+          } else {
+            document.getElementById('facilityTypeOtherWrap').style.display = 'none';
+            document.getElementById('facilityTypeOther').value = '';
+          }
+        });
+      });
 
       function escapeHtml(str) {
         if (!str) return '';
@@ -208,6 +266,47 @@
     <form id="facilityForm" onsubmit="event.preventDefault(); submitFacility();">
       <label for="name">施設名</label>
       <input type="text" id="name" required>
+      <label for="prefectureSelect">都道府県（関東）</label>
+      <select id="prefectureSelect" required>
+        <option value="">-- 選択 --</option>
+        <option value="東京都">東京都</option>
+        <option value="神奈川県">神奈川県</option>
+        <option value="千葉県">千葉県</option>
+        <option value="埼玉県">埼玉県</option>
+        <option value="茨城県">茨城県</option>
+        <option value="栃木県">栃木県</option>
+        <option value="群馬県">群馬県</option>
+        <option value="山梨県">山梨県</option>
+      </select>
+      <label for="municipalitySelect">市区町村</label>
+      <select id="municipalitySelect" required>
+        <option value="">-- 先に都道府県を選択 --</option>
+      </select>
+      <div style="margin-top:8px;">
+        <label for="municipalityNew">市区町村が一覧に無い場合は追加</label>
+        <input type="text" id="municipalityNew" placeholder="例: 千代田区" />
+        <button type="button" onclick="addMunicipalityEntry()">市区町村を追加</button>
+      </div>
+      <label for="facilityTypeSelect">事業所種類</label>
+      <select id="facilityTypeSelect" required>
+        <option value="">-- 選択 --</option>
+        <option value="居宅介護支援">居宅介護支援</option>
+        <option value="訪問介護">訪問介護</option>
+        <option value="通所介護">通所介護</option>
+        <option value="訪問看護">訪問看護</option>
+        <option value="看護小規模多機能">看護小規模多機能</option>
+        <option value="特別養護老人ホーム">特別養護老人ホーム</option>
+        <option value="有料老人ホーム">有料老人ホーム</option>
+        <option value="サービス付高齢者住宅">サービス付高齢者住宅</option>
+        <option value="ケアマネ">ケアマネ</option>
+        <option value="医療機関">医療機関</option>
+        <option value="行政機関">行政機関</option>
+        <option value="その他">その他</option>
+      </select>
+      <div id="facilityTypeOtherWrap" style="display:none;">
+        <label for="facilityTypeOther">その他詳細</label>
+        <input type="text" id="facilityTypeOther" placeholder="種類を入力" />
+      </div>
       <label for="address">住所</label>
       <input type="text" id="address" required>
       <label for="phone">電話番号</label>
@@ -220,10 +319,10 @@
     <h2>登録済み施設</h2>
     <table>
       <thead>
-        <tr><th>施設名</th><th>住所</th><th>電話番号</th></tr>
+        <tr><th>施設名</th><th>都道府県</th><th>市区町村</th><th>種類</th><th>住所</th><th>電話番号</th></tr>
       </thead>
       <tbody id="facilityRows">
-        <tr><td colspan="3">読み込み中...</td></tr>
+        <tr><td colspan="6">読み込み中...</td></tr>
       </tbody>
     </table>
 
