@@ -35,6 +35,8 @@
       .pill.overdue { background:#f8d7da; border-color:#f5c2c7; color:#842029; }
     </style>
     <script>
+      function showManual(){ document.getElementById('manualModal').style.display='block'; }
+      function closeManual(){ document.getElementById('manualModal').style.display='none'; }
       function applyTheme(pref){ document.body.classList.remove('theme-dark','theme-light'); if(pref==='dark') document.body.classList.add('theme-dark'); if(pref==='light') document.body.classList.add('theme-light'); }
       function updateThemeButton(pref){ const btn=document.getElementById('themeToggleBtn'); if(!btn) return; btn.textContent= pref==='dark'?'テーマ: ダーク': pref==='light'?'テーマ: ライト':'テーマ: 自動'; }
       function initTheme(){ const pref=localStorage.getItem('theme')||'system'; applyTheme(pref); updateThemeButton(pref); }
@@ -149,6 +151,7 @@
   <body>
     <nav>
       <a href="<?= ScriptApp.getService().getUrl(); ?>?page=index">メニューに戻る</a>
+      <a href="javascript:void(0)" onclick="showManual()">使い方マニュアル</a>
       <button id="themeToggleBtn" type="button" style="float:right;" onclick="toggleTheme()">テーマ: 自動</button>
     </nav>
 
@@ -246,6 +249,66 @@
         <div style="text-align:right; margin-top:12px;">
           <button onclick="closeHistory()">閉じる</button>
         </div>
+      </div>
+    </div>
+    <!-- マニュアル表示モーダル -->
+    <div id="manualModal" style="display:none; position:fixed; left:0; right:0; top:0; bottom:0; background:rgba(0,0,0,.35);">
+      <div style="max-width:760px; margin:4% auto; background:#fff; color:#111; padding:18px; border-radius:8px; max-height:80%; overflow:auto;">
+  <h2 style="margin-top:0;">紹介パートナー機能 — 障害者グループホーム / 訪問看護ステーション向けマニュアル</h2>
+  <p class="muted">このマニュアルは、障害者グループホームや訪問看護ステーションの現場スタッフが日常的に紹介を継続していただくための実務フローと操作手順をまとめたものです。まずは ToDo を確認し、接触 → 記録 → 次回アクション登録 のサイクルを回しましょう。</p>
+
+        <h3>1. 目的</h3>
+        <ul>
+          <li>既存の担当者と良好な関係を維持し、安定的に紹介を受ける。</li>
+          <li>接触履歴と次回アクションを記録して、フォローの抜け漏れを防ぐ。</li>
+          <li>紹介の成果（referral）を追跡できる基盤を作る。</li>
+        </ul>
+
+        <h3>2. 日常の基本フロー（シンプル）</h3>
+        <ol>
+          <li>画面上部の「今日〜2週間のToDo」を確認する。→ 当日〜近期にフォローすべき相手が表示されます。</li>
+          <li>該当担当者へ連絡（電話／面談）を行う。スクリプトは下記参照。</li>
+          <li>連絡後、該当行の「記録」ボタンから接触ログを残す。要点（話題・紹介可否・次回アクション）を簡潔に入力。</li>
+          <li>次回フォローが必要なら「次回までの日数」を入れて保存。ToDo に戻り、日付が反映されます。</li>
+        </ol>
+
+        <h3>3. 具体的な入力テンプレ（グループホーム／訪問看護向けの電話用）</h3>
+        <div style="background:#f8f9fa; padding:10px; border-radius:6px;">
+          <b>電話スクリプト（例）</b><br>
+          こんにちは、○○（サービス名）の△△です。いつもお世話になっております。現在、（利用可能なサービス/空き状況/支援内容）についてご案内しています。もしご利用者様の中でニーズがありそうな方がいれば、簡単にご紹介いただけますでしょうか？まずは簡単に状況を伺い、必要があれば詳しいご提案にお伺いします。<br>
+          <div class="muted" style="margin-top:6px;">記録のポイント：紹介の可否（可／保留／不可）、想定時期、対応者（誰が紹介するか）、次回連絡予定</div>
+        </div>
+
+        <h3>4. ステージの運用方針（グループホーム/訪問看護向け）</h3>
+        <ul>
+          <li>潜在：紹介の可能性はあるが接点が薄い。業務が多忙な現場が多いため、短い情報（1枚の案内）を定期的に送ると良い。</li>
+          <li>関係構築中：やり取りが増え、業務上の信頼が出てきた段階。事例共有や短時間の訪問で関係を深めると効果的です。</li>
+          <li>安定：紹介が定期的に出る良好な関係。紹介者へ感謝の連絡や簡潔な結果報告（紹介につながった場合）を行い関係を維持する。</li>
+          <li>停滞：忙しさや人事異動で接点が途切れている状態。再アプローチ（情報更新や訪問の提案）を計画してください。</li>
+        </ul>
+
+        <h3>5. 紹介が出たら（成果の取り扱い）</h3>
+        <ol>
+          <li>紹介先の氏名・連絡先・相談内容を Reports/Visits 等の該当機能で記録する。</li>
+          <li>紹介が成約（利用開始）に繋がった場合は、該当のパートナーの referralCount を増やす運用を行う（現状は手動、必要なら自動化可能）。</li>
+        </ol>
+
+        <h3>6. プライバシー・運用上の注意</h3>
+        <ul>
+          <li>個人情報（氏名・連絡先・医療情報など）は必要最小限に記録してください。</li>
+          <li>共有する情報は本人同意の有無を確認してください（特に医療情報）。</li>
+          <li>システムへの入力は誤字や個別の識別子を含めないなど院内ルールに従ってください。</li>
+        </ul>
+
+        <h3>7. よくある質問（FAQ）</h3>
+        <dl>
+          <dt>Q: 誰をパートナーにすべきですか？</dt>
+          <dd>A: 障害者グループホームの管理者や生活支援スタッフ、訪問看護ステーションの管理者・訪問看護師、相談支援専門員（障害分野）など、実際に利用者の紹介経路を持つ方を優先してください。</dd>
+          <dt>Q: 履歴の編集はできますか？</dt>
+          <dd>A: 現状は履歴の編集/削除は UI で未対応です。必要であれば実装します。</dd>
+        </dl>
+
+        <div style="text-align:right; margin-top:12px;"><button onclick="closeManual()">閉じる</button></div>
       </div>
     </div>
   </body>
