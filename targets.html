@@ -47,6 +47,15 @@
           updateResults();
         }).runMergeFacilitiesByAddress();
       }
+      // 簡易管理者判定（メールドメイン等で条件を後から拡張可能）
+      function showAdminBoxIfAllowed(){
+        // 条件: ローカルストレージに adminMerge=1 がある時のみ表示（仮運用）
+        try {
+          if (localStorage.getItem('adminMerge') === '1') {
+            const box = document.getElementById('adminMergeBox'); if (box) box.style.display='block';
+          }
+        } catch(e){}
+      }
 
       function onPrefChange(){
         const pref = document.getElementById('prefSelect').value;
@@ -99,6 +108,7 @@
       }
 
       window.addEventListener('load', function(){
+        showAdminBoxIfAllowed();
         updateResults();
       });
     </script>
@@ -113,7 +123,7 @@
       <button id="themeToggleBtn" type="button" style="float:right;" onclick="toggleTheme()">テーマ: 自動</button>
     </nav>
     <h1>営業先検索</h1>
-    <div style="margin:8px 0; padding:10px; border:1px solid #f0ad4e; border-radius:6px; background:#fff8e1;">
+    <div id="adminMergeBox" style="display:none; margin:8px 0; padding:10px; border:1px solid #f0ad4e; border-radius:6px; background:#fff8e1;">
       <b>データ統合作業（開発者向け）</b>
       <div style="margin-top:6px;">
         <button onclick="runMergeFacilities()">住所統合マージを実行（破壊的・バックアップ作成あり）</button>
