@@ -1344,6 +1344,20 @@ function deleteEmployee(id) {
 }
 
 // ===== Facilities 住所単位 破壊的マージ（C） =====
+function isAdminUser_() {
+  try {
+    const email = String(activeUserEmail() || '').toLowerCase();
+    const prop = PropertiesService.getScriptProperties().getProperty('ADMIN_EMAILS');
+    if (prop && String(prop).trim()) {
+      const allowed = String(prop).split(/[\s,;]+/).map(s=>String(s).toLowerCase()).filter(Boolean);
+      return email && allowed.indexOf(email) !== -1;
+    }
+    // 設定が無い場合は許可（開発初期運用）
+    return true;
+  } catch (e) {
+    return true; // 取得不可時は許可（必要に応じて false に変更）
+  }
+}
 // options: {
 //   keepRepresentativeId: true,     // 代表行（最初の行）の id を残す
 //   joinPhones: true,                // phone をユニークに結合（' / '）
@@ -1461,6 +1475,7 @@ function mergeFacilitiesByAddressDestructive(options) {
 
 // 既定オプションで実行するラッパー（clasp run用）
 function runMergeFacilitiesByAddress() {
+  if (!isAdminUser_()) throw new Error('権限がありません（ADMIN_EMAILS 未許可）');
   return mergeFacilitiesByAddressDestructive({
     keepRepresentativeId: true,
     joinPhones: true,
