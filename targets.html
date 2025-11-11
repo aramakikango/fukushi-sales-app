@@ -1,9 +1,6 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <base target="_top">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <style>
       :root { color-scheme: light dark; }
       body { font-family: Arial, sans-serif; padding: 24px; }
       nav a { margin-right: 12px; display:inline-block; padding:6px 8px; }
@@ -71,8 +68,9 @@
         Object.keys(params).forEach(k => { if (!params[k]) delete params[k]; });
         const tbody = document.getElementById('resultRows');
         tbody.innerHTML = '<tr><td colspan="6">検索中...</td></tr>';
-        google.script.run.withSuccessHandler(function(list){
-          if (!list.length){ tbody.innerHTML = '<tr><td colspan="6" class="empty">該当する営業先がありません</td></tr>'; return; }
+        const mode = document.getElementById('groupToggle') ? document.getElementById('groupToggle').value : 'normal';
+        const handler = function(list){
+          if (!list || !list.length){ tbody.innerHTML = '<tr><td colspan="6" class="empty">該当する営業先がありません</td></tr>'; return; }
           let html='';
           list.forEach(function(f){
             html += '<tr>'
@@ -85,7 +83,12 @@
               + '</tr>';
           });
           tbody.innerHTML = html;
-        }).searchFacilities(params);
+        };
+        if (mode === 'grouped') {
+          google.script.run.withSuccessHandler(handler).searchFacilitiesGrouped(params);
+        } else {
+          google.script.run.withSuccessHandler(handler).searchFacilities(params);
+        }
       }
 
       window.addEventListener('load', function(){
@@ -170,11 +173,18 @@
         <label for="kwInput">キーワード</label>
         <input id="kwInput" type="text" placeholder="名称/住所/備考など" oninput="updateResults()">
       </div>
+      <div>
+        <label for="groupToggle">表示モード</label>
+        <select id="groupToggle" onchange="updateResults()">
+          <option value="normal">事業所単位</option>
+          <option value="grouped">住所統合</option>
+        </select>
+      </div>
     </div>
     <div class="table-wrap">
       <table>
         <thead>
-          <tr><th>施設名</th><th>都道府県</th><th>市区町村</th><th>種類</th><th>住所</th><th>電話</th></tr>
+          <tr><th id="thName">施設名 / 拠点</th><th>都道府県</th><th>市区町村</th><th id="thType">種類</th><th>住所</th><th>電話</th></tr>
         </thead>
         <tbody id="resultRows"><tr><td colspan="6">読み込み中...</td></tr></tbody>
       </table>

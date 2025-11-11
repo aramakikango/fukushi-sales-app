@@ -74,6 +74,78 @@ function searchFacilities(params) {
   return list;
 }
 
+// 住所単位で施設を統合表示（同一住所の複数サービスを1行化）
+// params: { prefecture?, municipality?, facilityType?, q? }
+function searchFacilitiesGrouped(params) {
+  params = params || {};
+  const all = searchFacilities({}); // まず全件取得し自前でフィルタ
+  const groups = new Map();
+  all.forEach(f => {
+    // フィルタ判定（施設タイプはグループに少なくとも1つ一致すれば採用する方針）
+    if (params.prefecture && f.prefecture !== params.prefecture) return;
+    if (params.municipality && f.municipality !== params.municipality) return;
+    if (params.q) {
+      const q = String(params.q).toLowerCase();
+      const hay = (f.name+' '+f.address+' '+(f.notes||'')+' '+(f.facilityType||'')).toLowerCase();
+      if (!hay.includes(q)) return;
+    }
+    const addrKey = String(f.address || '').trim();
+    // 空住所は個別扱い（IDをキーにして重複防止）
+    const key = addrKey ? 'ADDR::'+addrKey : 'ID::'+f.id;
+    if (!groups.has(key)) {
+      groups.set(key, {
+        address: f.address || '',
+        prefecture: f.prefecture || '',
+        municipality: f.municipality || '',
+        names: new Set(),
+        types: new Set(),
+        phones: new Set(),
+        notesArr: [],
+        ids: new Set()
+      });
+    }
+    const g = groups.get(key);
+    g.names.add(f.name || '');
+    if (f.facilityType) {
+      // 複数種別が既にまとめられているケース（区切り）も分割統合
+      String(f.facilityType).split(/[\/、,\s]+/).filter(Boolean).forEach(t=> g.types.add(t));
+    }
+    if (f.phone) g.phones.add(f.phone);
+    if (f.notes) g.notesArr.push(f.notes);
+    g.ids.add(f.id);
+  });
+  const out = [];
+  groups.forEach(g => {
+    // facilityType で絞り込み（グループ内に対象タイプが含まれないなら除外）
+    if (params.facilityType) {
+      if (![...g.types].some(t => t === params.facilityType)) return;
+    }
+    const nameJoined = [...g.names].slice(0,3).join('／');
+    const typeJoined = [...g.types].sort().join('／');
+    const phoneJoined = [...g.phones].join(' / ');
+    // notes は代表的なものだけ（長文化防止）
+    const notes = g.notesArr.length ? g.notesArr[0] : '';
+    out.push({
+      idList: [...g.ids],
+      name: nameJoined,
+      prefecture: g.prefecture,
+      municipality: g.municipality,
+      facilityType: typeJoined,
+      address: g.address,
+      phone: phoneJoined,
+      notes: notes,
+      facilityCount: g.ids.size
+    });
+  });
+  // ソート：prefecture > municipality > address
+  out.sort((a,b)=> {
+    const kA = (a.prefecture||'')+'\t'+(a.municipality||'')+'\t'+(a.address||'');
+    const kB = (b.prefecture||'')+'\t'+(b.municipality||'')+'\t'+(b.address||'');
+    return kA.localeCompare(kB);
+  });
+  return out;
+}
+
 // 施設更新（id 必須）
 function updateFacility(data) {
   if (!data || !data.id) throw new Error('id は必須です');
