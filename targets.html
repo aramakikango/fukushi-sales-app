@@ -40,6 +40,13 @@
     </script>
     <script>
       function escapeHtml(s){return (s||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+      function runMergeFacilities(){
+        if (!confirm('【注意】Facilities を同一住所で統合（破壊的）します。直前にバックアップシートを自動作成します。実行してよろしいですか？')) return;
+        google.script.run.withSuccessHandler(function(res){
+          alert('統合完了\nバックアップ: '+(res && res.backupSheet)+'\nグループ数: '+(res && res.mergedGroups)+'\n更新行: '+(res && res.updatedRows)+'\n削除行: '+(res && res.deletedRows));
+          updateResults();
+        }).runMergeFacilitiesByAddress();
+      }
 
       function onPrefChange(){
         const pref = document.getElementById('prefSelect').value;
@@ -106,6 +113,13 @@
       <button id="themeToggleBtn" type="button" style="float:right;" onclick="toggleTheme()">テーマ: 自動</button>
     </nav>
     <h1>営業先検索</h1>
+    <div style="margin:8px 0; padding:10px; border:1px solid #f0ad4e; border-radius:6px; background:#fff8e1;">
+      <b>データ統合作業（開発者向け）</b>
+      <div style="margin-top:6px;">
+        <button onclick="runMergeFacilities()">住所統合マージを実行（破壊的・バックアップ作成あり）</button>
+        <span style="font-size:12px; color:#8a6d3b; margin-left:6px;">住所完全一致で同一拠点を1行にまとめます</span>
+      </div>
+    </div>
     <div class="filters">
       <div>
         <label for="prefSelect">都道府県</label>
