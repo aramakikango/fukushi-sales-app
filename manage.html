@@ -84,18 +84,71 @@
           }
         }).deleteFacility(id);
       }
+      function prefOptionsHtml(selected){
+        const prefs=['東京都','神奈川県','千葉県','埼玉県','茨城県','栃木県','群馬県','山梨県'];
+        let html='<option value="">-- 選択 --</option>';
+        prefs.forEach(function(p){ html += '<option'+(p===selected?' selected':'')+'>'+p+'</option>'; });
+        return html;
+      }
+      function facilityTypeCheckboxesHtml(selectedStr, id){
+        const selected = new Set((selectedStr||'').split(/[／,、]/).map(s=>s.trim()).filter(Boolean));
+        const make = (val,label)=> '<label style="display:inline-block;width:190px;"><input type="checkbox" name="e-type-'+id+'" class="etype" value="'+val.replace(/\"/g,'&quot;')+'"'+(selected.has(val)?' checked':'')+'> '+label+'</label>';
+        let html = '<div style="display:flex;flex-wrap:wrap;gap:8px;">';
+        const vals = [
+          '居宅介護支援','訪問介護','通所介護','訪問看護','看護小規模多機能','特別養護老人ホーム','有料老人ホーム','サービス付高齢者住宅',
+          '就労移行支援','就労継続支援A型','就労継続支援B型','就労定着支援','生活介護','自立訓練（生活訓練）','自立訓練（機能訓練）','共同生活援助（グループホーム）','短期入所（ショートステイ）','居宅介護（障害）','重度訪問介護','同行援護','行動援護','移動支援','施設入所支援',
+          '特定相談支援（計画相談）','障害児相談支援','児童発達支援','放課後等デイサービス','保育所等訪問支援','児童発達支援センター','ケアマネ','医療機関','行政機関','その他'
+        ];
+        vals.forEach(v=>{ html += make(v,v); });
+        html += '</div>';
+        // その他詳細入力
+        const otherDetail = Array.from(selected).find(s=>s.startsWith('その他:'));
+        const otherVal = otherDetail ? otherDetail.substring(3) : '';
+        html += '<div id="e-type-other-wrap-'+id+'" style="margin-top:8px;'+(selected.has('その他')||otherDetail?'':'display:none;')+'">'
+              + '<label>その他詳細 <input type="text" id="e-type-other-'+id+'" placeholder="種類を入力" value="'+(otherVal||'').replace(/\"/g,'&quot;')+'"></label>'
+              + '</div>';
+        return html;
+      }
+      function loadMunicipalityOptionsForRow(id, pref, current){
+        const sel = document.getElementById('e-mun-'+id);
+        sel.innerHTML = '<option value="">読み込み中...</option>';
+        if (!pref) { sel.innerHTML = '<option value="">-- 先に都道府県 --</option>'; return; }
+        google.script.run.withSuccessHandler(function(list){
+          let html='<option value="">-- 選択 --</option>';
+          list.forEach(function(m){
+            const val=m.municipality; html += '<option'+(val===current?' selected':'')+'>'+val+'</option>';
+          });
+          sel.innerHTML = html;
+        }).getMunicipalities({ prefecture: pref });
+      }
       function editFacility(id){
         const tr = document.getElementById('frow-'+id);
         if (!tr) return;
         const tds = tr.querySelectorAll('td');
         const name = tds[0].textContent; const pref = tds[1].textContent; const mun = tds[2].textContent; const type = tds[3].textContent; const addr = tds[4].textContent; const phone = tds[5].textContent;
         tds[0].innerHTML = '<input id="e-name-'+id+'" value="'+name.replace(/"/g,'&quot;')+'">';
-        tds[1].innerHTML = '<input id="e-pref-'+id+'" value="'+pref.replace(/"/g,'&quot;')+'">';
-        tds[2].innerHTML = '<input id="e-mun-'+id+'" value="'+mun.replace(/"/g,'&quot;')+'">';
-        tds[3].innerHTML = '<input id="e-type-'+id+'" value="'+type.replace(/"/g,'&quot;')+'">';
+        tds[1].innerHTML = '<select id="e-pref-'+id+'">'+prefOptionsHtml(pref)+'</select>';
+        tds[2].innerHTML = '<select id="e-mun-'+id+'"><option value="">-- 先に都道府県 --</option></select>';
+        tds[3].innerHTML = facilityTypeCheckboxesHtml(type, id);
         tds[4].innerHTML = '<input id="e-addr-'+id+'" value="'+addr.replace(/"/g,'&quot;')+'">';
         tds[5].innerHTML = '<input id="e-phone-'+id+'" value="'+phone.replace(/"/g,'&quot;')+'">';
         tds[6].innerHTML = '<button onclick="saveFacility(\''+id+'\')">保存</button> <button onclick="loadFacilitiesForManage()">キャンセル</button>';
+        // 県選択イベントで市区町村をロード
+        document.getElementById('e-pref-'+id).addEventListener('change', function(){
+          loadMunicipalityOptionsForRow(id, this.value, '');
+        });
+        // 初期の市区町村一覧読み込み
+        if (pref) loadMunicipalityOptionsForRow(id, pref, mun);
+        // その他チェックの表示制御
+        tr.querySelectorAll('input[name="e-type-'+id+'"]').forEach(function(cb){
+          cb.addEventListener('change', function(){
+            if (this.value==='その他') {
+              const wrap = document.getElementById('e-type-other-wrap-'+id);
+              wrap.style.display = this.checked ? 'block':'none';
+              if (!this.checked) document.getElementById('e-type-other-'+id).value='';
+            }
+          });
+        });
       }
       function saveFacility(id){
         const data = {
@@ -103,11 +156,21 @@
           name: document.getElementById('e-name-'+id).value,
           prefecture: document.getElementById('e-pref-'+id).value,
           municipality: document.getElementById('e-mun-'+id).value,
-          facilityType: document.getElementById('e-type-'+id).value,
+          facilityType: (function(){
+            const cbs = Array.from(document.querySelectorAll('input[name="e-type-'+id+'"]:checked'));
+            let vals = cbs.map(cb=>cb.value);
+            const otherIdx = vals.indexOf('その他');
+            if (otherIdx !== -1) {
+              const ov = (document.getElementById('e-type-other-'+id).value||'').trim();
+              if (ov) { vals[otherIdx] = 'その他:'+ov; } else { vals.splice(otherIdx,1); }
+            }
+            return vals.join('／');
+          })(),
           address: document.getElementById('e-addr-'+id).value,
           phone: document.getElementById('e-phone-'+id).value,
         };
         if (!data.name) { alert('施設名は必須です'); return; }
+        if (!data.facilityType) { alert('事業所種類を1つ以上選択してください'); return; }
         google.script.run.withSuccessHandler(function(){
           loadFacilitiesForManage();
         }).updateFacility(data);

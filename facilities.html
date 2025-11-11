@@ -44,32 +44,36 @@
     </script>
     <script>
       function submitFacility() {
+        const selected = Array.from(document.querySelectorAll('.ft-checkbox:checked')).map(cb=>cb.value);
+        // その他詳細
+        const otherCb = document.getElementById('ft-other');
+        if (otherCb && otherCb.checked) {
+          const otherVal = document.getElementById('facilityTypeOther').value.trim();
+          if (!otherVal) { alert('その他詳細を入力してください'); return; }
+          // 既存の 'その他' を除去し詳細付与
+          const idx = selected.indexOf('その他');
+          if (idx !== -1) selected[idx] = 'その他:' + otherVal;
+        }
         const data = {
-          name: document.getElementById('name').value,
+          name: document.getElementById('name').value.trim(),
           prefecture: document.getElementById('prefectureSelect').value,
           municipality: document.getElementById('municipalitySelect').value,
-          facilityType: (function(){
-            const sel = document.getElementById('facilityTypeSelect');
-            if (sel.value === 'その他') {
-              const other = document.getElementById('facilityTypeOther').value.trim();
-              if (!other) { alert('その他詳細を入力してください'); throw new Error('missing facilityTypeOther'); }
-              return 'その他:' + other;
-            }
-            return sel.value;
-          })(),
-          address: document.getElementById('address').value,
-          phone: document.getElementById('phone').value,
-          notes: document.getElementById('notes').value
+          facilityType: selected.join('／'),
+          address: document.getElementById('address').value.trim(),
+          phone: document.getElementById('phone').value.trim(),
+          notes: document.getElementById('notes').value.trim()
         };
         if (!data.name) { alert('施設名を入力してください'); return; }
         if (!data.prefecture) { alert('都道府県を選択してください'); return; }
         if (!data.municipality) { alert('市区町村を選択してください'); return; }
-        if (!data.facilityType) { alert('事業所種類を選択してください'); return; }
+        if (!data.facilityType) { alert('事業所種類を1つ以上選択してください'); return; }
         if (!data.address) { alert('住所を入力してください'); return; }
         if (!data.phone) { alert('電話番号を入力してください'); return; }
         google.script.run.withSuccessHandler(function() {
           alert('施設を登録しました');
           document.getElementById('facilityForm').reset();
+          // その他詳細エリアを閉じる
+          document.getElementById('facilityTypeOtherWrap').style.display='none';
           loadFacilities();
         }).addFacility(data);
       }
@@ -133,14 +137,14 @@
         document.getElementById('prefectureSelect').addEventListener('change', function(){
           loadMunicipalities(this.value);
         });
-        document.getElementById('facilityTypeSelect').addEventListener('change', function(){
-          if (this.value === 'その他') {
-            document.getElementById('facilityTypeOtherWrap').style.display = 'block';
-          } else {
-            document.getElementById('facilityTypeOtherWrap').style.display = 'none';
-            document.getElementById('facilityTypeOther').value = '';
-          }
-        });
+        // その他チェックボックスの表示制御
+        const otherCb = document.getElementById('ft-other');
+        if (otherCb) {
+          otherCb.addEventListener('change', function(){
+            document.getElementById('facilityTypeOtherWrap').style.display = this.checked ? 'block':'none';
+            if (!this.checked) document.getElementById('facilityTypeOther').value='';
+          });
+        }
       });
 
       function escapeHtml(str) {
@@ -190,53 +194,44 @@
         <button type="button" onclick="addMunicipalityEntry()">市区町村を追加</button>
         <button type="button" onclick="seedMunicipalitiesFromServer()" style="margin-left:8px;">関東市区町村を読み込む</button>
       </div>
-      <label for="facilityTypeSelect">事業所種類</label>
-      <select id="facilityTypeSelect" required>
-        <option value="">-- 選択 --</option>
-        <optgroup label="高齢者系">
-          <option value="居宅介護支援">居宅介護支援</option>
-          <option value="訪問介護">訪問介護</option>
-          <option value="通所介護">通所介護</option>
-          <option value="訪問看護">訪問看護</option>
-          <option value="看護小規模多機能">看護小規模多機能</option>
-          <option value="特別養護老人ホーム">特別養護老人ホーム</option>
-          <option value="有料老人ホーム">有料老人ホーム</option>
-          <option value="サービス付高齢者住宅">サービス付高齢者住宅</option>
-        </optgroup>
-        <optgroup label="障害福祉（成人）">
-          <option value="就労移行支援">就労移行支援</option>
-          <option value="就労継続支援A型">就労継続支援A型</option>
-          <option value="就労継続支援B型">就労継続支援B型</option>
-          <option value="就労定着支援">就労定着支援</option>
-          <option value="生活介護">生活介護</option>
-          <option value="自立訓練（生活訓練）">自立訓練（生活訓練）</option>
-          <option value="自立訓練（機能訓練）">自立訓練（機能訓練）</option>
-          <option value="共同生活援助（グループホーム）">共同生活援助（グループホーム）</option>
-          <option value="短期入所（ショートステイ）">短期入所（ショートステイ）</option>
-          <option value="居宅介護（障害）">居宅介護（障害）</option>
-          <option value="重度訪問介護">重度訪問介護</option>
-          <option value="同行援護">同行援護</option>
-          <option value="行動援護">行動援護</option>
-          <option value="移動支援">移動支援</option>
-          <option value="施設入所支援">施設入所支援</option>
-        </optgroup>
-        <optgroup label="相談支援">
-          <option value="特定相談支援（計画相談）">特定相談支援（計画相談）</option>
-          <option value="障害児相談支援">障害児相談支援</option>
-        </optgroup>
-        <optgroup label="児童・療育">
-          <option value="児童発達支援">児童発達支援</option>
-          <option value="放課後等デイサービス">放課後等デイサービス</option>
-          <option value="保育所等訪問支援">保育所等訪問支援</option>
-          <option value="児童発達支援センター">児童発達支援センター</option>
-        </optgroup>
-        <optgroup label="その他・関連機関">
-          <option value="ケアマネ">ケアマネ</option>
-          <option value="医療機関">医療機関</option>
-          <option value="行政機関">行政機関</option>
-          <option value="その他">その他</option>
-        </optgroup>
-      </select>
+      <fieldset style="margin-top:12px;">
+        <legend>事業所種類（複数選択可）</legend>
+        <div style="display:flex; flex-wrap:wrap; gap:8px;">
+          <label style="width:190px;"><input type="checkbox" class="ft-checkbox" value="居宅介護支援"> 居宅介護支援</label>
+          <label style="width:190px;"><input type="checkbox" class="ft-checkbox" value="訪問介護"> 訪問介護</label>
+          <label style="width:190px;"><input type="checkbox" class="ft-checkbox" value="通所介護"> 通所介護</label>
+          <label style="width:190px;"><input type="checkbox" class="ft-checkbox" value="訪問看護"> 訪問看護</label>
+          <label style="width:190px;"><input type="checkbox" class="ft-checkbox" value="看護小規模多機能"> 看護小規模多機能</label>
+          <label style="width:190px;"><input type="checkbox" class="ft-checkbox" value="特別養護老人ホーム"> 特別養護老人ホーム</label>
+          <label style="width:190px;"><input type="checkbox" class="ft-checkbox" value="有料老人ホーム"> 有料老人ホーム</label>
+          <label style="width:190px;"><input type="checkbox" class="ft-checkbox" value="サービス付高齢者住宅"> サービス付高齢者住宅</label>
+          <label style="width:190px;"><input type="checkbox" class="ft-checkbox" value="就労移行支援"> 就労移行支援</label>
+          <label style="width:190px;"><input type="checkbox" class="ft-checkbox" value="就労継続支援A型"> 就労継続支援A型</label>
+          <label style="width:190px;"><input type="checkbox" class="ft-checkbox" value="就労継続支援B型"> 就労継続支援B型</label>
+          <label style="width:190px;"><input type="checkbox" class="ft-checkbox" value="就労定着支援"> 就労定着支援</label>
+          <label style="width:190px;"><input type="checkbox" class="ft-checkbox" value="生活介護"> 生活介護</label>
+          <label style="width:190px;"><input type="checkbox" class="ft-checkbox" value="自立訓練（生活訓練）"> 自立訓練（生活訓練）</label>
+          <label style="width:190px;"><input type="checkbox" class="ft-checkbox" value="自立訓練（機能訓練）"> 自立訓練（機能訓練）</label>
+          <label style="width:190px;"><input type="checkbox" class="ft-checkbox" value="共同生活援助（グループホーム）"> 共同生活援助（グループホーム）</label>
+          <label style="width:190px;"><input type="checkbox" class="ft-checkbox" value="短期入所（ショートステイ）"> 短期入所（ショートステイ）</label>
+          <label style="width:190px;"><input type="checkbox" class="ft-checkbox" value="居宅介護（障害）"> 居宅介護（障害）</label>
+          <label style="width:190px;"><input type="checkbox" class="ft-checkbox" value="重度訪問介護"> 重度訪問介護</label>
+          <label style="width:190px;"><input type="checkbox" class="ft-checkbox" value="同行援護"> 同行援護</label>
+          <label style="width:190px;"><input type="checkbox" class="ft-checkbox" value="行動援護"> 行動援護</label>
+          <label style="width:190px;"><input type="checkbox" class="ft-checkbox" value="移動支援"> 移動支援</label>
+          <label style="width:190px;"><input type="checkbox" class="ft-checkbox" value="施設入所支援"> 施設入所支援</label>
+          <label style="width:190px;"><input type="checkbox" class="ft-checkbox" value="特定相談支援（計画相談）"> 特定相談支援（計画相談）</label>
+          <label style="width:190px;"><input type="checkbox" class="ft-checkbox" value="障害児相談支援"> 障害児相談支援</label>
+          <label style="width:190px;"><input type="checkbox" class="ft-checkbox" value="児童発達支援"> 児童発達支援</label>
+          <label style="width:190px;"><input type="checkbox" class="ft-checkbox" value="放課後等デイサービス"> 放課後等デイサービス</label>
+          <label style="width:190px;"><input type="checkbox" class="ft-checkbox" value="保育所等訪問支援"> 保育所等訪問支援</label>
+          <label style="width:190px;"><input type="checkbox" class="ft-checkbox" value="児童発達支援センター"> 児童発達支援センター</label>
+          <label style="width:190px;"><input id="ft-other" type="checkbox" class="ft-checkbox" value="その他"> その他</label>
+          <label style="width:190px;"><input type="checkbox" class="ft-checkbox" value="ケアマネ"> ケアマネ</label>
+          <label style="width:190px;"><input type="checkbox" class="ft-checkbox" value="医療機関"> 医療機関</label>
+          <label style="width:190px;"><input type="checkbox" class="ft-checkbox" value="行政機関"> 行政機関</label>
+        </div>
+      </fieldset>
       <div id="facilityTypeOtherWrap" style="display:none;">
         <label for="facilityTypeOther">その他詳細</label>
         <input type="text" id="facilityTypeOther" placeholder="種類を入力" />
