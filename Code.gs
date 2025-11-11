@@ -1342,3 +1342,129 @@ function deleteEmployee(id) {
   }
   throw new Error('指定された社員IDが見つかりません: ' + id);
 }
+
+// ===== Facilities 住所単位 破壊的マージ（C） =====
+// options: {
+//   keepRepresentativeId: true,     // 代表行（最初の行）の id を残す
+//   joinPhones: true,                // phone をユニークに結合（' / '）
+//   maxNames: 3,                     // name の代表表示に含める件数
+//   joinAllNotes: false              // notes を全結合するか（false の場合は代表行の notes を維持）
+// }
+function mergeFacilitiesByAddressDestructive(options) {
+  options = options || {};
+  const keepRepresentativeId = options.keepRepresentativeId !== false; // default true
+  const joinPhones = options.joinPhones !== false; // default true
+  const maxNames = Math.max(1, Number(options.maxNames || 3));
+  const joinAllNotes = options.joinAllNotes === true; // default false
+
+  const ss = getSpreadsheet();
+  const sheet = ss.getSheetByName('Facilities');
+  if (!sheet) throw new Error('Facilities シートが見つかりません');
+
+  // バックアップ作成
+  const stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyyMMdd_HHmmss');
+  const backupName = 'Facilities_backup_' + stamp;
+  const backup = ss.insertSheet(backupName);
+  const values = sheet.getDataRange().getValues();
+  if (values.length) backup.getRange(1,1,values.length,values[0].length).setValues(values);
+
+  if (values.length <= 1) return { backupSheet: backupName, mergedGroups: 0, deletedRows: 0, updatedRows: 0 };
+
+  const headers = values[0];
+  const idx = {}; headers.forEach((h,i)=> idx[h]=i);
+  const idCol = idx.id != null ? idx.id : 0;
+  const nameCol = idx.name != null ? idx.name : 1;
+  const prefectureCol = idx.prefecture;
+  const municipalityCol = idx.municipality;
+  const typeCol = idx.facilityType;
+  const addressCol = idx.address != null ? idx.address : 2;
+  const phoneCol = idx.phone != null ? idx.phone : 3;
+  const notesCol = idx.notes != null ? idx.notes : null;
+
+  // グルーピング（住所完全一致、空白はトリム）
+  const groups = new Map(); // key -> array of row indices (1-based for sheet, excluding header)
+  for (let i = 1; i < values.length; i++) {
+    const r = values[i];
+    const addr = String(r[addressCol] || '').trim();
+    const key = addr ? addr : '__EMPTY__::' + (r[idCol] || i);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(i + 1); // シート上は1始まり
+  }
+
+  let mergedGroups = 0;
+  let deletedRows = 0;
+  let updatedRows = 0;
+  const rowsToDelete = [];
+
+  // 住所が空のグループ（__EMPTY__）は事実上1件ずつなので処理不要。2件以上あってもマージしない方針。
+  groups.forEach((rowIdxList, key) => {
+    if (key.startsWith('__EMPTY__')) return; // スキップ
+    if (!rowIdxList || rowIdxList.length <= 1) return;
+    // 代表は最初の行（小さい行番号）。
+    rowIdxList.sort((a,b)=> a-b);
+    const repRow = rowIdxList[0];
+    const others = rowIdxList.slice(1);
+    // 集計
+    const nameSet = new Set();
+    const typeSet = new Set();
+    const phoneSet = new Set();
+    let repNotes = '';
+
+    rowIdxList.forEach(rn => {
+      const r = sheet.getRange(rn, 1, 1, sheet.getLastColumn()).getValues()[0];
+      if (nameCol != null && r[nameCol]) nameSet.add(String(r[nameCol]));
+      if (typeCol != null && r[typeCol]) {
+        String(r[typeCol]).split(/[\/、,\s]+/).filter(Boolean).forEach(t => typeSet.add(t));
+      }
+      if (joinPhones && phoneCol != null && r[phoneCol]) phoneSet.add(String(r[phoneCol]));
+      if (!joinAllNotes && rn === repRow && notesCol != null) repNotes = r[notesCol] || repNotes;
+    });
+    const repRange = sheet.getRange(repRow, 1, 1, sheet.getLastColumn());
+    const rep = repRange.getValues()[0];
+    // 更新内容を構築
+    const newName = [...nameSet].slice(0, maxNames).join('／') || rep[nameCol];
+    const newType = [...typeSet].join('／');
+    const newPhone = joinPhones ? [...phoneSet].join(' / ') : rep[phoneCol];
+    const newNotes = joinAllNotes && notesCol != null ? (function(){
+      const collected = [];
+      rowIdxList.forEach(rn => {
+        const r = sheet.getRange(rn,1,1,sheet.getLastColumn()).getValues()[0];
+        if (notesCol != null && r[notesCol]) collected.push(String(r[notesCol]));
+      });
+      return collected.join(' / ');
+    })() : repNotes;
+
+    // シートへ反映（代表行）。id はそのまま。
+    if (nameCol != null) rep[nameCol] = newName;
+    if (typeCol != null) rep[typeCol] = newType;
+    if (phoneCol != null && newPhone !== undefined) rep[phoneCol] = newPhone;
+    if (notesCol != null && newNotes !== undefined) rep[notesCol] = newNotes;
+    repRange.setValues([rep]);
+    updatedRows++;
+
+    // 代表以外を削除予定に追加
+    rowsToDelete.push(...others);
+    mergedGroups++;
+  });
+
+  // 行削除（降順）
+  rowsToDelete.sort((a,b)=> b-a);
+  rowsToDelete.forEach(rn => { sheet.deleteRow(rn); deletedRows++; });
+
+  return {
+    backupSheet: backupName,
+    mergedGroups: mergedGroups,
+    deletedRows: deletedRows,
+    updatedRows: updatedRows
+  };
+}
+
+// 既定オプションで実行するラッパー（clasp run用）
+function runMergeFacilitiesByAddress() {
+  return mergeFacilitiesByAddressDestructive({
+    keepRepresentativeId: true,
+    joinPhones: true,
+    maxNames: 3,
+    joinAllNotes: false
+  });
+}
