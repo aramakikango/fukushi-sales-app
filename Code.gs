@@ -55,6 +55,7 @@ function searchFacilities(params) {
       prefecture: idx.prefecture!=null ? r[idx.prefecture] : '',
       municipality: idx.municipality!=null ? r[idx.municipality] : '',
       facilityType: idx.facilityType!=null ? r[idx.facilityType] : '',
+      contact: idx.contact!=null ? r[idx.contact] : '',
       address: r[idx.address] != null ? r[idx.address] : r[2],
       phone: r[idx.phone] != null ? r[idx.phone] : r[3],
       notes: idx.notes!=null ? r[idx.notes] : ''
@@ -162,6 +163,8 @@ function updateFacility(data) {
   }
   if (target === -1) throw new Error('指定IDの施設が見つかりません');
   const setters = ['name','prefecture','municipality','facilityType','address','phone','notes'];
+  // include contact in updatable columns
+  const setters = ['name','prefecture','municipality','facilityType','address','phone','contact','notes'];
   setters.forEach(function(key){
     if (data[key] != null && idx[key] != null) {
       sheet.getRange(target+1, idx[key]+1).setValue(data[key]);
@@ -218,7 +221,8 @@ function setupSheets() {
   const ss = getSpreadsheet();
   const names = ss.getSheets().map(s => s.getName());
   if (!names.includes('Facilities')) {
-    ss.insertSheet('Facilities').appendRow(['id','name','prefecture','municipality','facilityType','address','phone','notes','createdAt','createdBy']);
+    // ヘッダ順を固定: contact 列を notes の前に配置
+    ss.insertSheet('Facilities').appendRow(['id','name','prefecture','municipality','facilityType','address','phone','contact','notes','createdAt','createdBy']);
   }
   if (!names.includes('Visits')) {
     ss.insertSheet('Visits').appendRow(['id','facilityId','visitDate','visitorName','visitorEmail','purpose','notes','createdAt','createdBy']);
@@ -308,6 +312,8 @@ function setupSheets() {
     ensureCol('prefecture', 'name');
     ensureCol('municipality', 'prefecture');
     ensureCol('facilityType', 'municipality');
+    // contact を phone の後、notes の前に確実に挿入
+    ensureCol('contact', 'phone');
   }
   // 施設の旧 contact 列から FacilityContacts へ自動移行（必要な場合のみ）
   try { migrateFacilityContactsFromFacilities(); } catch (e) { Logger.log('[migrate][WARN] %s', e && e.message); }
@@ -571,6 +577,7 @@ function addFacility(data) {
   set('facilityType', data.facilityType || '');
   set('address', data.address || '');
   set('phone', data.phone || '');
+  set('contact', data.contact || '');
   set('notes', data.notes || '');
   set('createdAt', createdAt);
   set('createdBy', createdBy);
