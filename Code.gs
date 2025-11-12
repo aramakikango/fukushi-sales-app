@@ -162,7 +162,6 @@ function updateFacility(data) {
     if (String(rows[i][idx.id]) === String(data.id)) { target = i; break; }
   }
   if (target === -1) throw new Error('指定IDの施設が見つかりません');
-  const setters = ['name','prefecture','municipality','facilityType','address','phone','notes'];
   // include contact in updatable columns
   const setters = ['name','prefecture','municipality','facilityType','address','phone','contact','notes'];
   setters.forEach(function(key){
