@@ -7,7 +7,7 @@
       :root { color-scheme: light dark; }
       *, *::before, *::after { box-sizing: border-box; }
       html, body { width:100%; max-width:100%; overflow-x:hidden; }
-      body { font-family: Arial, sans-serif; padding: 24px; }
+  body { font-family: Arial, sans-serif; padding: 24px; margin: 0; }
       nav { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
       nav a { margin-right: 12px; }
       nav #themeToggleBtn { margin-left:auto; }
@@ -17,13 +17,13 @@
   label { display: block; margin-top: 12px; }
       input, textarea, select { width: 100%; padding: 6px; }
       button { margin-top: 16px; padding: 8px 16px; }
-      .table-wrap { width:100%; overflow-x:auto; }
+  .table-wrap { width:100%; overflow-x:auto; -webkit-overflow-scrolling: touch; }
       table { width: 100%; border-collapse: collapse; margin-top: 24px; min-width: 720px; }
       th, td { border-bottom: 1px solid #eee; padding: 8px; text-align: left; vertical-align: top; }
       h2 { margin-top: 28px; }
       .muted { color:#666; font-size:12px; }
-      .grid2 { display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .grid3 { display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+    .grid2 { display:grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 12px; }
+  .grid3 { display:grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr) minmax(0,1fr); gap: 8px; }
   @media (max-width: 900px) { .grid3 { grid-template-columns: 1fr 1fr; } }
   @media (max-width: 560px) { .grid3 { grid-template-columns: 1fr; } }
       .digest-wrap { margin-top: 8px; }
