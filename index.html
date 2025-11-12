@@ -3,77 +3,192 @@
   <head>
     <base target="_top">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+
     <style>
       :root { color-scheme: light dark; }
-      /* Base layout */
-      body { font-family: Arial, sans-serif; padding: 40px; }
-      h1 { margin-bottom: 24px; font-size: 24px; }
-      p { color: #555; margin-bottom: 16px; }
-      ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 14px; max-width: 480px; }
-      li { margin: 0; }
-      a { display: block; padding: 18px 22px; font-size: 18px; border: 2px solid #0c66d4; border-radius: 12px; text-decoration: none; color: #0c66d4; font-weight: bold; text-align: center; transition: all .2s ease; }
-      a:hover, a:active { background:#0c66d4; color:#fff; }
 
-      /* Theme toggle button styled similar to menu items */
-      #themeToggleBtn { padding:16px 18px; font-size:18px; border:2px solid #0c66d4; background:#fff; color:#0c66d4; border-radius:12px; font-weight:bold; cursor:pointer; width:100%; transition: all .2s ease; }
-      #themeToggleBtn:hover { background:#0c66d4; color:#fff; }
-      .theme-toggle-wrap { max-width:480px; margin:0 0 20px 0; }
+      /* ===== Base Layout ===== */
+      body {
+        font-family: Arial, sans-serif;
+        padding: 20px;
+        margin: 0;
+      }
 
-      /* Mobile adjustments */
+      h1 {
+        margin: 10px 0 12px;
+        font-size: 22px;
+      }
+
+      p {
+        margin: 0 0 12px;
+        font-size: 15px;
+      }
+
+      /* ===== Menu List ===== */
+      .menu-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        max-width: 480px;
+      }
+
+      .menu-item {
+        display: block;
+        width: 100%;
+        padding: 18px 22px;
+        font-size: 18px;
+        font-weight: bold;
+        text-align: center;
+        text-decoration: none;
+        border-radius: 12px;
+        border: 2px solid var(--border);
+        color: var(--textLink);
+        background: var(--btnBg);
+        transition: all .2s;
+        min-height: 60px;
+      }
+
+      .menu-item:hover,
+      .menu-item:active {
+        background: var(--btnHoverBg);
+        color: var(--btnHoverText);
+      }
+
+      /* ===== Theme Button ===== */
+      .theme-wrap {
+        max-width: 480px;
+        margin-bottom: 16px;
+      }
+
+      #themeToggleBtn {
+        width: 100%;
+        padding: 16px;
+        font-size: 18px;
+        border-radius: 12px;
+        border: 2px solid var(--border);
+        font-weight: bold;
+        cursor: pointer;
+        background: var(--btnBg);
+        color: var(--textLink);
+        transition: all .2s;
+        min-height: 60px;
+      }
+
+      #themeToggleBtn:hover {
+        background: var(--btnHoverBg);
+        color: var(--btnHoverText);
+      }
+
+      /* ===== Light Theme Variables ===== */
+      body.theme-light {
+        --bg: #fff;
+        --text: #111;
+        --textLink: #0c66d4;
+        --border: #0c66d4;
+        --btnBg: #fff;
+        --btnHoverBg: #0c66d4;
+        --btnHoverText: #fff;
+      }
+
+      /* ===== Dark Theme Variables ===== */
+      body.theme-dark {
+        --bg: #111;
+        --text: #eaeaea;
+        --textLink: #8ab4ff;
+        --border: #3769e6;
+        --btnBg: #1b1b1b;
+        --btnHoverBg: #1f3a75;
+        --btnHoverText: #fff;
+      }
+
+      /* ===== System Dark Mode ===== */
+      @media (prefers-color-scheme: dark) {
+        body:not(.theme-light):not(.theme-dark) {
+          --bg: #111;
+          --text: #eaeaea;
+          --textLink: #8ab4ff;
+          --border: #3769e6;
+          --btnBg: #1b1b1b;
+          --btnHoverBg: #1f3a75;
+          --btnHoverText: #fff;
+        }
+      }
+
+      /* Apply background / text color using variables */
+      body {
+        background: var(--bg);
+        color: var(--text);
+      }
+
+      /* ===== Mobile Optimized ===== */
       @media (max-width: 600px) {
         body { padding: 12px; }
-        ul { gap: 10px; max-width: 100%; }
-        a { padding:20px 24px; font-size:18px; border-radius:10px; width:100%; min-height:60px; }
-        #themeToggleBtn { font-size:18px; padding:16px; border-radius:10px; min-height:60px; }
-        .theme-toggle-wrap { max-width:100%; }
+
+        h1 { font-size: 20px; }
+        .menu-item,
+        #themeToggleBtn {
+          padding: 20px;
+          font-size: 19px;
+          min-height: 64px;
+        }
       }
 
-      /* System dark preference (fallback if user chooses system) */
-      @media (prefers-color-scheme: dark) {
-        body:not(.theme-light):not(.theme-dark) { background:#111; color:#eaeaea; }
-        body:not(.theme-light):not(.theme-dark) p { color:#bbb; }
-        body:not(.theme-light):not(.theme-dark) a { color:#8ab4ff; border-color:#3769e6; }
-        body:not(.theme-light):not(.theme-dark) a:hover, body:not(.theme-light):not(.theme-dark) a:active { background:#1f3a75; color:#eaeaea; }
-        body:not(.theme-light):not(.theme-dark) #themeToggleBtn { background:#1a1a1a; color:#8ab4ff; border-color:#3769e6; }
-        body:not(.theme-light):not(.theme-dark) #themeToggleBtn:hover { background:#1f3a75; color:#eaeaea; }
-      }
-
-      /* Manual theme overrides */
-      body.theme-light { background:#fff; color:#111; }
-      body.theme-light p { color:#555; }
-      body.theme-light a { color:#0c66d4; border-color:#0c66d4; }
-      body.theme-light a:hover, body.theme-light a:active { background:#0c66d4; color:#fff; }
-      body.theme-light #themeToggleBtn { background:#fff; color:#0c66d4; border-color:#0c66d4; }
-      body.theme-light #themeToggleBtn:hover { background:#0c66d4; color:#fff; }
-
-      body.theme-dark { background:#111; color:#eaeaea; }
-      body.theme-dark p { color:#bbb; }
-      body.theme-dark a { color:#8ab4ff; border-color:#3769e6; }
-      body.theme-dark a:hover, body.theme-dark a:active { background:#1f3a75; color:#eaeaea; }
-      body.theme-dark #themeToggleBtn { background:#1a1a1a; color:#8ab4ff; border-color:#3769e6; }
-      body.theme-dark #themeToggleBtn:hover { background:#1f3a75; color:#eaeaea; }
     </style>
+
+      *, *::before, *::after { box-sizing: border-box; }
+      html, body { width:100%; max-width:100%; overflow-x:hidden; }
     <script>
-      function applyTheme(pref){ document.body.classList.remove('theme-dark','theme-light'); if(pref==='dark')document.body.classList.add('theme-dark'); if(pref==='light')document.body.classList.add('theme-light'); }
-      function updateThemeButton(pref){ const btn=document.getElementById('themeToggleBtn'); if(btn) btn.textContent = pref==='dark'?'テーマ: ダーク':(pref==='light'?'テーマ: ライト':'テーマ: 自動'); }
-      function initTheme(){ const pref=localStorage.getItem('theme')||'system'; applyTheme(pref); updateThemeButton(pref); }
-      function toggleTheme(){ const cur=localStorage.getItem('theme')||'system'; const next=cur==='system'?'dark':(cur==='dark'?'light':'system'); localStorage.setItem('theme',next); applyTheme(next); updateThemeButton(next); }
-      window.addEventListener('load', initTheme);
+      function applyTheme(pref) {
+        document.body.classList.remove("theme-dark", "theme-light");
+        if (pref === "dark") document.body.classList.add("theme-dark");
+        if (pref === "light") document.body.classList.add("theme-light");
+      }
+
+      function updateThemeButton(pref) {
+        const btn = document.getElementById("themeToggleBtn");
+        btn.textContent =
+          pref === "dark" ? "テーマ: ダーク" :
+          pref === "light" ? "テーマ: ライト" :
+          "テーマ: 自動";
+      }
+
+      function initTheme() {
+        const pref = localStorage.getItem("theme") || "system";
+        applyTheme(pref);
+        updateThemeButton(pref);
+      }
+
+      function toggleTheme() {
+        const cur = localStorage.getItem("theme") || "system";
+        const next = cur === "system" ? "dark" : cur === "dark" ? "light" : "system";
+        localStorage.setItem("theme", next);
+        applyTheme(next);
+        updateThemeButton(next);
+      }
+
+      window.addEventListener("load", initTheme);
     </script>
   </head>
+
   <body>
-  <div class="theme-toggle-wrap"><button id="themeToggleBtn" type="button" onclick="toggleTheme()">テーマ: 自動</button></div>
+    <div class="theme-wrap">
+      <button id="themeToggleBtn" onclick="toggleTheme()">テーマ: 自動</button>
+    </div>
+
     <h1>営業管理メニュー</h1>
     <p>利用したい機能を選択してください。</p>
-    <ul>
-      <!-- 絶対URL化：iframe/埋込環境で相対パスが /blank を基準に解決される問題への対策 -->
-  <li><a href="<?= ScriptApp.getService().getUrl(); ?>?page=facilities">施設登録</a></li>
-  <li><a href="<?= ScriptApp.getService().getUrl(); ?>?page=targets">営業先検索</a></li>
-    <li><a href="<?= ScriptApp.getService().getUrl(); ?>?page=partners">紹介パートナー</a></li>
-  <li><a href="<?= ScriptApp.getService().getUrl(); ?>?page=manage">施設・担当者 管理</a></li>
-  <li><a href="<?= ScriptApp.getService().getUrl(); ?>?page=visits">問い合わせ記録</a></li>
-  <li><a href="<?= ScriptApp.getService().getUrl(); ?>?page=reports">営業報告</a></li>
-  <li><a href="<?= ScriptApp.getService().getUrl(); ?>?page=employees">社員登録</a></li>
+
+    <ul class="menu-list">
+      <li><a class="menu-item" href="<?= ScriptApp.getService().getUrl(); ?>?page=facilities">施設登録</a></li>
+      <li><a class="menu-item" href="<?= ScriptApp.getService().getUrl(); ?>?page=targets">営業先検索</a></li>
+      <li><a class="menu-item" href="<?= ScriptApp.getService().getUrl(); ?>?page=partners">紹介パートナー</a></li>
+      <li><a class="menu-item" href="<?= ScriptApp.getService().getUrl(); ?>?page=manage">施設・担当者 管理</a></li>
+      <li><a class="menu-item" href="<?= ScriptApp.getService().getUrl(); ?>?page=visits">問い合わせ記録</a></li>
+      <li><a class="menu-item" href="<?= ScriptApp.getService().getUrl(); ?>?page=reports">営業報告</a></li>
+      <li><a class="menu-item" href="<?= ScriptApp.getService().getUrl(); ?>?page=employees">社員登録</a></li>
     </ul>
   </body>
 </html>
