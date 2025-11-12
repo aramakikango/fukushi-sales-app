@@ -861,7 +861,57 @@ function addReport(data) {
   set('createdAt', createdAt);
   set('createdBy', createdBy);
   sheet.appendRow(row);
+  // Webhook 通知（LINE WORKS など）
+  try {
+    const facilityName = (function(){
+      try { const fac = getFacilities().find(f=> String(f.id) === String(data.facilityId)); return fac ? fac.name : ''; } catch(e){ return ''; }
+    })();
+    const msg = '【営業報告】\n' +
+      (facilityName ? '施設: ' + facilityName + '\n' : '') +
+      (data.reportDate ? '日付: ' + String(data.reportDate) + '\n' : '') +
+      (data.reporterName ? '報告者: ' + String(data.reporterName) + '\n' : '') +
+      (data.summary ? '概要: ' + String(data.summary) + '\n' : '') +
+      (data.followUp ? 'フォロー: ' + String(data.followUp) + '\n' : '');
+    try { sendLineWorksWebhook(msg); } catch (e) { Logger.log('[sendLineWorksWebhook][ERROR] %s', e && e.message); }
+  } catch (e) {
+    Logger.log('[addReport][WEBHOOK-ERR] %s', e && e.message);
+  }
+
   return { id, createdAt };
+}
+
+// ----- LINE WORKS Webhook helper -----
+function setLineWorksWebhookUrl(url) {
+  if (!isAdminUser_()) throw new Error('権限がありません');
+  if (!url) throw new Error('url は必須です');
+  PropertiesService.getScriptProperties().setProperty('LINE_WORKS_WEBHOOK_URL', String(url));
+  return { ok: true };
+}
+
+function getLineWorksWebhookUrl() {
+  return PropertiesService.getScriptProperties().getProperty('LINE_WORKS_WEBHOOK_URL') || '';
+}
+
+function sendLineWorksWebhook(message) {
+  try {
+    const url = PropertiesService.getScriptProperties().getProperty('LINE_WORKS_WEBHOOK_URL');
+    if (!url) { Logger.log('[sendLineWorksWebhook] no webhook url configured'); return { ok: false, reason: 'no_url' }; }
+    const payload = { content: message };
+    const opts = {
+      method: 'post',
+      contentType: 'application/json',
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    };
+    const resp = UrlFetchApp.fetch(url, opts);
+    const code = resp.getResponseCode();
+    const body = resp.getContentText();
+    Logger.log('[sendLineWorksWebhook] code=%s body=%s', code, body);
+    return { ok: code >= 200 && code < 300, code: code, body: body };
+  } catch (e) {
+    Logger.log('[sendLineWorksWebhook][ERROR] %s', e && e.message);
+    return { ok: false, error: e && e.message };
+  }
 }
 
 // 営業報告一覧取得（facilityId / from / to / キーワード検索 q 対応）
