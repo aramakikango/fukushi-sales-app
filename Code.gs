@@ -47,6 +47,7 @@ function searchFacilities(params) {
   const headers = rows[0];
   const idx = {}; headers.forEach((h,i)=> idx[h]=i);
   const list = [];
+  const limit = Number(params.limit || 0);
   for (let i = 1; i < rows.length; i++) {
     const r = rows[i];
     const item = {
@@ -62,13 +63,23 @@ function searchFacilities(params) {
     };
     if (params.prefecture && item.prefecture !== params.prefecture) continue;
     if (params.municipality && item.municipality !== params.municipality) continue;
-    if (params.facilityType && item.facilityType !== params.facilityType) continue;
+    if (params.facilityType) {
+      const sel = String(params.facilityType).trim();
+      const src = String(item.facilityType || '');
+      if (!src) continue;
+      const tokens = src.split(/[／,、]/).map(s=>String(s).trim()).filter(Boolean);
+      const match = sel === 'その他'
+        ? tokens.some(t => t === 'その他' || t.indexOf('その他:') === 0)
+        : tokens.indexOf(sel) !== -1;
+      if (!match) continue;
+    }
     if (params.q) {
       const q = String(params.q).toLowerCase();
       const hay = (item.name+' '+item.address+' '+(item.municipality||'')+' '+(item.notes||'')+' '+(item.facilityType||'')).toLowerCase();
       if (!hay.includes(q)) continue;
     }
     list.push(item);
+    if (limit > 0 && list.length >= limit) break;
   }
   // 名前でソート
   list.sort((a,b)=> String(a.name||'').localeCompare(String(b.name||'')));
@@ -79,7 +90,7 @@ function searchFacilities(params) {
 // params: { prefecture?, municipality?, facilityType?, q? }
 function searchFacilitiesGrouped(params) {
   params = params || {};
-  const all = searchFacilities({}); // まず全件取得し自前でフィルタ
+  const all = searchFacilities({}); // グループ化の完全性のため全件を取得
   const groups = new Map();
   all.forEach(f => {
     // フィルタ判定（施設タイプはグループに少なくとも1つ一致すれば採用する方針）
@@ -144,6 +155,8 @@ function searchFacilitiesGrouped(params) {
     const kB = (b.prefecture||'')+'\t'+(b.municipality||'')+'\t'+(b.address||'');
     return kA.localeCompare(kB);
   });
+  const limit = Number(params.limit || 0);
+  if (limit > 0 && out.length > limit) return out.slice(0, limit);
   return out;
 }
 
@@ -585,7 +598,8 @@ function addFacility(data) {
 }
 
 // 施設一覧取得（簡易構造）
-function getFacilities() {
+function getFacilities(params) {
+  params = params || {};
   const ss = getSpreadsheet();
   const sheet = ss.getSheetByName('Facilities');
   if (!sheet) return [];
@@ -594,6 +608,7 @@ function getFacilities() {
   const headers = rows[0];
   const idx = {}; headers.forEach((h,i)=> idx[h]=i);
   const list = [];
+  const limit = Number(params.limit || 0);
   for (let i = 1; i < rows.length; i++) {
     const r = rows[i];
     list.push({
@@ -606,6 +621,7 @@ function getFacilities() {
       phone: r[idx.phone] != null ? r[idx.phone] : r[3],
       notes: idx.notes!=null ? r[idx.notes] : r[5]
     });
+    if (limit > 0 && list.length >= limit) break;
   }
   return list;
 }
@@ -1046,6 +1062,7 @@ function getFacilityContacts(params) {
   const headers = rows[0];
   const idx = {}; headers.forEach((h,i)=> idx[h]=i);
   const list = [];
+  const limit = Number(params.limit || 0);
   for (let i = 1; i < rows.length; i++) {
     const r = rows[i];
     const item = {
@@ -1070,6 +1087,7 @@ function getFacilityContacts(params) {
     if (params.facilityId && item.facilityId !== params.facilityId) continue;
     if (params.partnerFlag === true && !item.partnerFlag) continue;
     list.push(item);
+    if (limit > 0 && list.length >= limit) break;
   }
   return list;
 }

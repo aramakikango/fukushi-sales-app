@@ -6,20 +6,31 @@
     <style>
       :root { color-scheme: light dark; }
       body { font-family: Arial, sans-serif; padding: 24px; }
+      nav { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
       nav a { margin-right: 12px; display: inline-block; padding: 6px 8px; }
+      nav #themeToggleBtn { margin-left:auto; }
+  /* Theme toggle button base */
+  #themeToggleBtn { padding:10px 14px; border:1px solid #0c66d4; background:#fff; color:#0c66d4; border-radius:6px; font-weight:bold; cursor:pointer; }
+  #themeToggleBtn:hover { background:#0c66d4; color:#fff; }
       label { display: block; margin-top: 12px; }
       input, textarea, select { width: 100%; padding: 10px; box-sizing: border-box; }
       button { margin-top: 16px; padding: 10px 16px; }
       .table-wrap { width: 100%; overflow-x: auto; }
-      table { width: 100%; min-width: 640px; border-collapse: collapse; margin-top: 16px; }
+      table { width: 100%; min-width: 700px; border-collapse: collapse; margin-top: 16px; }
       th, td { border-bottom: 1px solid #eee; padding: 8px; text-align: left; }
       h2 { margin-top: 24px; }
 
       @media (max-width: 600px) {
         body { padding: 16px; }
-        nav a { margin-bottom: 6px; font-size: 14px; }
-        button { width: 100%; }
+        /* Stack nav vertically and enlarge tap targets */
+        nav { flex-direction: column; align-items: stretch; }
+        nav a, nav button { width:100%; margin:0 0 8px 0; font-size:16px; padding:16px 18px; min-height:56px; border-radius:0; }
+        nav a { margin-right:0; }
+        #themeToggleBtn { width:100%; }
+        button { width: 100%; padding:12px 16px; min-height:56px; }
+        input, textarea, select, button { font-size:16px; }
         label { margin-top: 10px; }
+        fieldset legend { font-size:14px; }
       }
       @media (prefers-color-scheme: dark) {
         body { background:#111; color:#eaeaea; }
@@ -33,6 +44,8 @@
       body.theme-dark input, body.theme-dark textarea, body.theme-dark select { background:#1e1e1e; color:#eaeaea; border:1px solid #333; }
       body.theme-dark button { background:#2a2a2a; color:#eaeaea; border:1px solid #444; }
       body.theme-dark nav a { color:#8ab4ff; }
+  body.theme-dark #themeToggleBtn { background:#1a1a1a; color:#8ab4ff; border-color:#3769e6; }
+  body.theme-dark #themeToggleBtn:hover { background:#1f3a75; color:#eaeaea; }
       body.theme-light { background:#fff; color:#111; }
     </style>
     <script>
@@ -145,6 +158,11 @@
             if (!this.checked) document.getElementById('facilityTypeOther').value='';
           });
         }
+        // デフォルト都道府県: 栃木県
+        try {
+          const prefSel = document.getElementById('prefectureSelect');
+          if (prefSel && !prefSel.value) { prefSel.value = '栃木県'; loadMunicipalities('栃木県'); }
+        } catch(e){}
       });
 
       function escapeHtml(str) {
@@ -165,7 +183,7 @@
       <a href="<?= ScriptApp.getService().getUrl(); ?>?page=visits">問い合わせ記録</a>
       <a href="<?= ScriptApp.getService().getUrl(); ?>?page=reports">営業報告</a>
       <a href="<?= ScriptApp.getService().getUrl(); ?>?page=employees">社員登録</a>
-      <button id="themeToggleBtn" type="button" style="float:right;" onclick="toggleTheme()">テーマ: 自動</button>
+      <button id="themeToggleBtn" type="button" onclick="toggleTheme()">テーマ: 自動</button>
     </nav>
 
     <h1>施設登録</h1>
@@ -180,7 +198,7 @@
         <option value="千葉県">千葉県</option>
         <option value="埼玉県">埼玉県</option>
         <option value="茨城県">茨城県</option>
-        <option value="栃木県">栃木県</option>
+        <option value="栃木県" selected>栃木県</option>
         <option value="群馬県">群馬県</option>
         <option value="山梨県">山梨県</option>
       </select>

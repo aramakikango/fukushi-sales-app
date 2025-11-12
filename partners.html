@@ -6,15 +6,28 @@
     <style>
       :root { color-scheme: light dark; }
       body { font-family: Arial, sans-serif; padding: 24px; }
+      nav { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
       nav a { margin-right: 12px; display:inline-block; padding:6px 8px; }
+      nav #themeToggleBtn { margin-left:auto; }
+      /* Theme toggle button base */
+      #themeToggleBtn { padding:10px 14px; border:1px solid #0c66d4; background:#fff; color:#0c66d4; border-radius:6px; font-weight:bold; cursor:pointer; }
+      #themeToggleBtn:hover { background:#0c66d4; color:#fff; }
       label { display:block; margin-top:12px; }
       input, select, textarea { width:100%; padding:8px; box-sizing:border-box; }
       button { margin-top: 12px; padding:8px 14px; }
-      table { width:100%; border-collapse: collapse; margin-top: 16px; }
+      .table-wrap { width:100%; overflow-x:auto; }
+      table { width:100%; border-collapse: collapse; margin-top: 16px; min-width: 760px; }
       th, td { border-bottom:1px solid #eee; padding:8px; text-align:left; }
       .muted { color:#666; font-size:12px; }
       .row { display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-      @media (max-width: 720px) { .row { grid-template-columns: 1fr; } body { padding: 16px; } }
+  @media (max-width: 720px) { .row { grid-template-columns: 1fr; } body { padding: 16px; } input, select, textarea, button { font-size:16px; } button { padding:12px 16px; min-height:44px; } }
+      /* Mobile: stack nav vertically and make full-width buttons */
+      @media (max-width: 650px) {
+        nav { flex-direction: column; align-items: stretch; }
+        nav a, nav button { width: 100%; margin: 0 0 8px 0; font-size: 16px; padding: 16px 18px; min-height: 56px; border-radius: 0; }
+        nav a { margin-right: 0; }
+        #themeToggleBtn { width:100%; }
+      }
       @media (prefers-color-scheme: dark) {
         body { background:#111; color:#eaeaea; }
         a { color:#8ab4ff; }
@@ -26,6 +39,8 @@
       body.theme-dark th, body.theme-dark td { border-bottom:1px solid #333; }
       body.theme-dark input, body.theme-dark select, body.theme-dark textarea { background:#1e1e1e; color:#eaeaea; border:1px solid #333; }
       body.theme-dark button { background:#2a2a2a; color:#eaeaea; border:1px solid #444; }
+      body.theme-dark #themeToggleBtn { background:#1a1a1a; color:#8ab4ff; border-color:#3769e6; }
+      body.theme-dark #themeToggleBtn:hover { background:#1f3a75; color:#eaeaea; }
       body.theme-light { background:#fff; color:#111; }
       body.theme-light th, body.theme-light td { border-bottom:1px solid #eee; }
       body.theme-light input, body.theme-light select, body.theme-light textarea { background:#fff; color:#111; border:1px solid #ccc; }
@@ -52,7 +67,7 @@
           list.forEach(function(c){
             const opt = document.createElement('option'); opt.value = c.id; opt.textContent = (c.contactName||'(無名)') + ' — ' + (c.facilityId||''); sel.appendChild(opt);
           });
-        }).getFacilityContacts({});
+        }).getFacilityContacts({ limit: 200 });
       }
       function addPartner(){
         const id = document.getElementById('candidateSelect').value; if(!id){ alert('担当者を選択'); return; }
@@ -78,7 +93,7 @@
             '</tr>';
           });
           tbody.innerHTML = html;
-        }).getPartnerContacts({});
+  }).getPartnerContacts({});
       }
       function stageLabel(val){
         if(!val) return '未設定';
@@ -152,7 +167,7 @@
     <nav>
       <a href="<?= ScriptApp.getService().getUrl(); ?>?page=index">メニューに戻る</a>
       <a href="javascript:void(0)" onclick="showManual()">使い方マニュアル</a>
-      <button id="themeToggleBtn" type="button" style="float:right;" onclick="toggleTheme()">テーマ: 自動</button>
+      <button id="themeToggleBtn" type="button" onclick="toggleTheme()">テーマ: 自動</button>
     </nav>
 
     <h1>紹介パートナー営業</h1>
@@ -188,6 +203,7 @@
 
     <h2 style="margin-top:20px;">パートナー一覧</h2>
     <div class="muted" style="margin-bottom:4px;">ステージ: 潜在 → 関係構築中 → 安定 → 停滞（再活性が必要）</div>
+    <div class="table-wrap">
     <table>
       <thead>
         <tr>
@@ -206,6 +222,7 @@
         <tr><td colspan="8">読み込み中...</td></tr>
       </tbody>
     </table>
+    </div>
 
     <!-- 接触ログ モーダル風 -->
     <div id="logPane" style="display:none; position:fixed; left:0; right:0; top:0; bottom:0; background:rgba(0,0,0,.3);">

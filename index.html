@@ -2,15 +2,31 @@
 <html>
   <head>
     <base target="_top">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
       :root { color-scheme: light dark; }
       body { font-family: Arial, sans-serif; padding: 40px; }
       h1 { margin-bottom: 24px; }
       p { color: #555; }
-      ul { list-style: none; padding: 0; max-width: 360px; }
+      ul { list-style: none; padding: 0; max-width: 420px; }
       li { margin: 12px 0; }
       a { display: block; padding: 16px 20px; border: 1px solid #0c66d4; border-radius: 6px; text-decoration: none; color: #0c66d4; font-weight: bold; }
       a:hover { background: #0c66d4; color: #fff; }
+      /* Theme toggle base styling */
+      #themeToggleBtn { padding: 10px 14px; border:1px solid #0c66d4; background:#fff; color:#0c66d4; border-radius:6px; font-weight:bold; cursor:pointer; }
+      #themeToggleBtn:hover { background:#0c66d4; color:#fff; }
+      body.theme-dark #themeToggleBtn { background:#1a1a1a; color:#8ab4ff; border-color:#3769e6; }
+      body.theme-dark #themeToggleBtn:hover { background:#1f3a75; color:#eaeaea; }
+      .theme-toggle-wrap { text-align:right; margin-bottom:12px; }
+      @media (max-width: 600px) {
+        body { padding: 0; }
+        ul { max-width: none; margin: 0; }
+        li { margin: 0; }
+        a { padding: 18px 20px; min-height: 56px; font-size: 18px; border-radius: 0; width: 100%; }
+        /* Make theme toggle full-width like menu buttons on mobile */
+        .theme-toggle-wrap { text-align:initial; margin:0; }
+        #themeToggleBtn { width:100%; display:block; padding:18px 20px; min-height:56px; font-size:18px; border-radius:0; }
+      }
       @media (prefers-color-scheme: dark) {
         body { background: #111; color: #eaeaea; }
         p { color: #bbb; }
@@ -34,7 +50,7 @@
     </script>
   </head>
   <body>
-  <div style="text-align:right; margin-bottom:8px;"><button id="themeToggleBtn" type="button" onclick="toggleTheme()">テーマ: 自動</button></div>
+  <div class="theme-toggle-wrap"><button id="themeToggleBtn" type="button" onclick="toggleTheme()">テーマ: 自動</button></div>
     <h1>営業管理メニュー</h1>
     <p>利用したい機能を選択してください。</p>
     <ul>

@@ -2,18 +2,28 @@
 <html>
   <head>
     <base target="_top">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
       :root { color-scheme: light dark; }
       body { font-family: Arial, sans-serif; padding: 24px; }
+      nav { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
       nav a { margin-right: 12px; }
-      label { display: block; margin-top: 12px; }
+      nav #themeToggleBtn { margin-left:auto; }
+  /* Theme toggle button base */
+  #themeToggleBtn { padding:10px 14px; border:1px solid #0c66d4; background:#fff; color:#0c66d4; border-radius:6px; font-weight:bold; cursor:pointer; }
+  #themeToggleBtn:hover { background:#0c66d4; color:#fff; }
+  label { display: block; margin-top: 12px; }
       input, textarea, select { width: 100%; padding: 6px; }
       button { margin-top: 16px; padding: 8px 16px; }
-      table { width: 100%; border-collapse: collapse; margin-top: 24px; }
+      .table-wrap { width:100%; overflow-x:auto; }
+      table { width: 100%; border-collapse: collapse; margin-top: 24px; min-width: 720px; }
       th, td { border-bottom: 1px solid #eee; padding: 8px; text-align: left; vertical-align: top; }
       h2 { margin-top: 28px; }
       .muted { color:#666; font-size:12px; }
       .grid2 { display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .grid3 { display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  @media (max-width: 900px) { .grid3 { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 560px) { .grid3 { grid-template-columns: 1fr; } }
       .digest-wrap { margin-top: 8px; }
       .digest-cards { display:grid; grid-template-columns: repeat(5, 1fr); gap:8px; }
       .digest-card { border:1px solid #eee; border-radius:6px; padding:8px; font-size:12px; background:#fafafa; }
@@ -22,6 +32,14 @@
       @media (max-width: 900px) { .digest-cards { grid-template-columns: repeat(2, 1fr); } }
       @media (max-width: 520px) { .digest-cards { grid-template-columns: 1fr; } }
       @media (max-width: 720px) { .grid2 { grid-template-columns: 1fr; } }
+  @media (max-width: 640px) { body { padding:16px; } input, select, textarea, button { font-size:16px; } button { padding:12px 16px; min-height:44px; } }
+      /* Mobile: stack nav vertically and make full-width buttons */
+      @media (max-width: 650px) {
+        nav { flex-direction: column; align-items: stretch; }
+        nav a, nav button { width: 100%; margin: 0 0 8px 0; font-size: 16px; padding: 16px 18px; min-height: 56px; border-radius: 0; }
+        nav a { margin-right: 0; }
+        #themeToggleBtn { width:100%; }
+      }
       @media (prefers-color-scheme: dark) {
         body { background:#111; color:#eaeaea; }
         th, td { border-bottom:1px solid #333; }
@@ -39,6 +57,8 @@
       body.theme-dark .digest-card { background:#1a1a1a; border-color:#333; }
       body.theme-dark .digest-card .meta, body.theme-dark .muted { color:#aaa; }
       body.theme-light { background:#fff; color:#111; }
+      body.theme-dark #themeToggleBtn { background:#1a1a1a; color:#8ab4ff; border-color:#3769e6; }
+      body.theme-dark #themeToggleBtn:hover { background:#1f3a75; color:#eaeaea; }
     </style>
     <script>
       // Theme toggle
@@ -117,6 +137,15 @@
         }
         google.script.run.withSuccessHandler(function() {
           alert('営業報告を登録しました');
+          // 最近使った施設を保存（最大5件）
+          try {
+            if (facilityId) {
+              const key = 'recentFacilities';
+              const arr = JSON.parse(localStorage.getItem(key) || '[]');
+              const next = [facilityId].concat(arr.filter(id => id !== facilityId)).slice(0,5);
+              localStorage.setItem(key, JSON.stringify(next));
+            }
+          } catch(e){}
           document.getElementById('reportForm').reset();
           loadReports(data.facilityId);
           // 選択リセット
@@ -134,18 +163,66 @@
         }).addReport(data);
       }
 
-      function loadFacilities() {
-        google.script.run.withSuccessHandler(function(list) {
-          const select = document.getElementById('reportFacility');
-          select.innerHTML = '<option value="">-- 施設を選択 --</option>';
-          list.forEach(function(f) {
+      // 施設候補のフィルタUI
+      function onFacilityPrefChange(){
+        const pref = document.getElementById('facilityPref').value;
+        const munSel = document.getElementById('facilityMun');
+        munSel.innerHTML = '<option value="">全て</option>';
+        if (!pref) { updateFacilityOptions(); return; }
+        google.script.run.withSuccessHandler(function(list){
+          munSel.innerHTML = '<option value="">全て</option>';
+          list.forEach(function(m){ const o=document.createElement('option'); o.value=m.municipality; o.textContent=m.municipality; munSel.appendChild(o); });
+          updateFacilityOptions();
+        }).getMunicipalities({ prefecture: pref });
+      }
+      function updateFacilityOptions(){
+        const pref = document.getElementById('facilityPref').value || '';
+        const mun = document.getElementById('facilityMun').value || '';
+        const type = document.getElementById('facilityTypeFilter').value || '';
+        const kw = document.getElementById('facilityKw').value || '';
+        const params = { prefecture: pref, municipality: mun, facilityType: type, q: kw, limit: 400 };
+        // 空値を削除
+        Object.keys(params).forEach(k=>{ if (!params[k]) delete params[k]; });
+        const select = document.getElementById('reportFacility');
+        select.innerHTML = '<option value="">検索中...</option>';
+        google.script.run.withSuccessHandler(function(list){
+          // 最近使った施設を上位に
+          let recentIds=[]; try { recentIds = JSON.parse(localStorage.getItem('recentFacilities')||'[]'); } catch(e){}
+          const byId = {}; (list||[]).forEach(f=> byId[f.id]=f);
+          const recent = recentIds.map(id => byId[id]).filter(Boolean);
+          const rest = (list||[]).filter(f=> recentIds.indexOf(f.id)===-1);
+          const reorder = recent.concat(rest);
+          select.innerHTML = '';
+          if (!reorder.length) {
+            const opt = document.createElement('option'); opt.value=''; opt.textContent='該当する施設がありません'; select.appendChild(opt);
+            return;
+          }
+          if (recent.length) {
+            const og = document.createElement('optgroup'); og.label = '最近使った施設';
+            recent.forEach(function(f){
+              const opt = document.createElement('option');
+              opt.value = f.id;
+              opt.textContent = f.name + (f.municipality? '（'+f.municipality+'）':'') + (f.address? ' — ' + f.address : '');
+              if (f.facilityType) opt.setAttribute('data-facility-type', f.facilityType);
+              og.appendChild(opt);
+            });
+            select.appendChild(og);
+          }
+          const og2 = document.createElement('optgroup'); og2.label = '全候補';
+          reorder.forEach(function(f){
             const opt = document.createElement('option');
             opt.value = f.id;
-            opt.textContent = f.name + (f.address ? ' — ' + f.address : '');
+            opt.textContent = f.name + (f.municipality? '（'+f.municipality+'）':'') + (f.address ? ' — ' + f.address : '');
             if (f.facilityType) opt.setAttribute('data-facility-type', f.facilityType);
-            select.appendChild(opt);
+            og2.appendChild(opt);
           });
-        }).getFacilities();
+          select.appendChild(og2);
+        }).searchFacilities(params);
+      }
+      let __facKwTimer=null;
+      function updateFacilityOptionsDebounced(){
+        if (__facKwTimer) clearTimeout(__facKwTimer);
+        __facKwTimer = setTimeout(updateFacilityOptions, 250);
       }
 
       function loadReports(facilityId) {
@@ -260,7 +337,11 @@
 
       window.addEventListener('load', function() {
         initTheme();
-        loadFacilities();
+        // デフォルト都道府県を栃木県に設定してから候補を読み込み
+        try {
+          const p = document.getElementById('facilityPref'); if (p && !p.value) p.value = '栃木県';
+        } catch(e){}
+        onFacilityPrefChange();
         loadEmployeesForReporter();
         document.getElementById('reportFacility').addEventListener('change', function() {
           loadReports(this.value);
@@ -530,12 +611,81 @@
       <a href="<?= ScriptApp.getService().getUrl(); ?>?page=facilities">施設登録</a>
       <a href="<?= ScriptApp.getService().getUrl(); ?>?page=visits">問い合わせ記録</a>
       <a href="<?= ScriptApp.getService().getUrl(); ?>?page=employees">社員登録</a>
-      <button id="themeToggleBtn" type="button" style="float:right;" onclick="toggleTheme()">テーマ: 自動</button>
+      <button id="themeToggleBtn" type="button" onclick="toggleTheme()">テーマ: 自動</button>
     </nav>
 
     <h1>営業報告</h1>
     <form id="reportForm" onsubmit="event.preventDefault(); submitReport();">
       <label for="reportFacility">施設</label>
+      <div style="border:1px solid #eee; padding:10px; border-radius:6px; margin-bottom:8px;">
+        <div class="grid3">
+          <div>
+            <label for="facilityPref" style="margin-top:0;">都道府県</label>
+            <select id="facilityPref" onchange="onFacilityPrefChange()">
+              <option value="">全て</option>
+              <option>東京都</option><option>神奈川県</option><option>千葉県</option><option>埼玉県</option><option>茨城県</option><option selected>栃木県</option><option>群馬県</option><option>山梨県</option>
+            </select>
+          </div>
+          <div>
+            <label for="facilityMun" style="margin-top:0;">市区町村</label>
+            <select id="facilityMun" onchange="updateFacilityOptions()"><option value="">全て</option></select>
+          </div>
+          <div>
+            <label for="facilityTypeFilter" style="margin-top:0;">事業所種類</label>
+            <select id="facilityTypeFilter" onchange="updateFacilityOptions()">
+              <option value="">全て</option>
+              <optgroup label="高齢者系">
+                <option value="居宅介護支援">居宅介護支援</option>
+                <option value="訪問介護">訪問介護</option>
+                <option value="通所介護">通所介護</option>
+                <option value="訪問看護">訪問看護</option>
+                <option value="看護小規模多機能">看護小規模多機能</option>
+                <option value="特別養護老人ホーム">特別養護老人ホーム</option>
+                <option value="有料老人ホーム">有料老人ホーム</option>
+                <option value="サービス付高齢者住宅">サービス付高齢者住宅</option>
+              </optgroup>
+              <optgroup label="障害福祉（成人）">
+                <option value="就労移行支援">就労移行支援</option>
+                <option value="就労継続支援A型">就労継続支援A型</option>
+                <option value="就労継続支援B型">就労継続支援B型</option>
+                <option value="就労定着支援">就労定着支援</option>
+                <option value="生活介護">生活介護</option>
+                <option value="自立訓練（生活訓練）">自立訓練（生活訓練）</option>
+                <option value="自立訓練（機能訓練）">自立訓練（機能訓練）</option>
+                <option value="共同生活援助（グループホーム）">共同生活援助（グループホーム）</option>
+                <option value="短期入所（ショートステイ）">短期入所（ショートステイ）</option>
+                <option value="居宅介護（障害）">居宅介護（障害）</option>
+                <option value="重度訪問介護">重度訪問介護</option>
+                <option value="同行援護">同行援護</option>
+                <option value="行動援護">行動援護</option>
+                <option value="移動支援">移動支援</option>
+                <option value="施設入所支援">施設入所支援</option>
+              </optgroup>
+              <optgroup label="相談支援">
+                <option value="特定相談支援（計画相談）">特定相談支援（計画相談）</option>
+                <option value="障害児相談支援">障害児相談支援</option>
+              </optgroup>
+              <optgroup label="児童・療育">
+                <option value="児童発達支援">児童発達支援</option>
+                <option value="放課後等デイサービス">放課後等デイサービス</option>
+                <option value="保育所等訪問支援">保育所等訪問支援</option>
+                <option value="児童発達支援センター">児童発達支援センター</option>
+              </optgroup>
+              <optgroup label="その他・関連機関">
+                <option value="ケアマネ">ケアマネ</option>
+                <option value="医療機関">医療機関</option>
+                <option value="市役所">市役所</option>
+                <option value="行政機関">行政機関</option>
+                <option value="その他">その他</option>
+              </optgroup>
+            </select>
+          </div>
+        </div>
+        <div style="margin-top:8px; display:grid; grid-template-columns: 1fr auto; gap:8px;">
+          <input id="facilityKw" type="text" placeholder="キーワード（名称/住所/備考）" oninput="updateFacilityOptionsDebounced()">
+          <button type="button" onclick="updateFacilityOptions()" style="margin:0;">候補を更新</button>
+        </div>
+      </div>
       <select id="reportFacility" required></select>
       <div class="muted" id="activityBox" style="margin-top:4px;"></div>
   <div id="recentDigest" class="digest-wrap"></div>
@@ -650,6 +800,7 @@
     </form>
 
     <h2>施設別の営業報告</h2>
+    <div class="table-wrap">
     <table>
       <thead>
         <tr><th>報告日時</th><th>方法</th><th>要約</th><th>担当者</th><th>報告者</th><th>詳細 / フォローアップ</th></tr>
@@ -658,5 +809,6 @@
         <tr><td colspan="6">施設を選択してください</td></tr>
       </tbody>
     </table>
+    </div>
   </body>
 </html>

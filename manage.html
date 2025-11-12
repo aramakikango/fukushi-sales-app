@@ -2,16 +2,31 @@
 <html>
   <head>
     <base target="_top">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
       :root { color-scheme: light dark; }
       body { font-family: Arial, sans-serif; padding: 24px; }
+      nav { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
       nav a { margin-right: 12px; }
+      nav #themeToggleBtn { margin-left:auto; }
+  /* Theme toggle button base */
+  #themeToggleBtn { padding:10px 14px; border:1px solid #0c66d4; background:#fff; color:#0c66d4; border-radius:6px; font-weight:bold; cursor:pointer; }
+  #themeToggleBtn:hover { background:#0c66d4; color:#fff; }
       input, select, textarea { padding: 6px; }
-      table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+      .table-wrap { width:100%; overflow-x:auto; }
+      table { width: 100%; border-collapse: collapse; margin-top: 16px; min-width: 720px; }
       th, td { border-bottom: 1px solid #eee; padding: 8px; text-align: left; }
       .row-actions button { margin-right: 6px; }
       .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
       @media (max-width: 1000px) { .grid { grid-template-columns: 1fr; } }
+  @media (max-width: 640px) { body { padding:16px; } .row-actions button { margin-bottom:6px; } input, select, textarea, button { font-size:16px; } button { padding:12px 16px; min-height:44px; } }
+      /* Mobile: stack nav vertically and make full-width buttons */
+      @media (max-width: 650px) {
+        nav { flex-direction: column; align-items: stretch; }
+        nav a, nav button { width: 100%; margin: 0 0 8px 0; font-size: 16px; padding: 16px 18px; min-height: 56px; border-radius: 0; }
+        nav a { margin-right: 0; }
+        #themeToggleBtn { width:100%; }
+      }
       .muted { color: #666; font-size: 12px; }
       .flex { display: flex; gap: 8px; align-items: center; }
       @media (prefers-color-scheme: dark) {
@@ -26,6 +41,8 @@
       body.theme-dark input, body.theme-dark select, body.theme-dark textarea { background:#1e1e1e; color:#eaeaea; border:1px solid #333; }
       body.theme-dark button { background:#2a2a2a; color:#eaeaea; border:1px solid #444; }
       body.theme-light { background:#fff; color:#111; }
+      body.theme-dark #themeToggleBtn { background:#1a1a1a; color:#8ab4ff; border-color:#3769e6; }
+      body.theme-dark #themeToggleBtn:hover { background:#1f3a75; color:#eaeaea; }
     </style>
     <script>
       function applyTheme(pref){ document.body.classList.remove('theme-dark','theme-light'); if(pref==='dark')document.body.classList.add('theme-dark'); if(pref==='light')document.body.classList.add('theme-light'); }
@@ -39,7 +56,7 @@
         google.script.run.withSuccessHandler(function(list){
           window._facList = list || [];
           renderFacilityRows();
-        }).getFacilities();
+        }).getFacilities({ limit: 500 });
       }
       function renderFacilityRows() {
         const tbody = document.getElementById('facManageRows');
@@ -291,7 +308,7 @@
       <a href="<?= ScriptApp.getService().getUrl(); ?>?page=visits">問い合わせ記録</a>
       <a href="<?= ScriptApp.getService().getUrl(); ?>?page=reports">営業報告</a>
       <a href="<?= ScriptApp.getService().getUrl(); ?>?page=employees">社員</a>
-      <button id="themeToggleBtn" type="button" style="float:right;" onclick="toggleTheme()">テーマ: 自動</button>
+      <button id="themeToggleBtn" type="button" onclick="toggleTheme()">テーマ: 自動</button>
     </nav>
 
     <h1>施設・担当者 管理</h1>
@@ -302,14 +319,16 @@
           <input id="facFilterKw" type="text" placeholder="キーワード（施設名・住所・市区町村・備考）" oninput="renderFacilityRows()" style="flex:1;">
           <select id="facFilterPref" onchange="renderFacilityRows()">
             <option value="">都道府県</option>
-            <option>東京都</option><option>神奈川県</option><option>千葉県</option><option>埼玉県</option><option>茨城県</option><option>栃木県</option><option>群馬県</option><option>山梨県</option>
+            <option>東京都</option><option>神奈川県</option><option>千葉県</option><option>埼玉県</option><option>茨城県</option><option selected>栃木県</option><option>群馬県</option><option>山梨県</option>
           </select>
           <input id="facFilterType" placeholder="種類で絞り込み（完全一致）" oninput="renderFacilityRows()" />
         </div>
+        <div class="table-wrap">
         <table>
           <thead><tr><th>施設名</th><th>都道府県</th><th>市区町村</th><th>種類</th><th>住所</th><th>電話</th><th></th></tr></thead>
           <tbody id="facManageRows"><tr><td colspan="8">読み込み中...</td></tr></tbody>
         </table>
+        </div>
       </section>
       <section>
         <h2>担当者</h2>
@@ -325,10 +344,12 @@
           <div style="margin-top:8px;">
             <input id="contactsFilter" type="text" placeholder="担当者フィルタ（氏名・備考）" oninput="renderContacts()">
           </div>
+          <div class="table-wrap">
           <table>
             <thead><tr><th>氏名</th><th>電話</th><th>備考</th><th>名刺</th><th>登録日時</th><th></th></tr></thead>
             <tbody id="contactsRows"><tr><td colspan="6">施設を選択してください</td></tr></tbody>
           </table>
+          </div>
         </div>
         <div id="contactsPlaceholder" class="muted" style="margin-top:8px;">左の一覧から「担当者」ボタンで施設を選択してください。</div>
       </section>
