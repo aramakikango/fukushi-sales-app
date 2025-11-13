@@ -7,9 +7,34 @@
       :root { color-scheme: light dark; }
       *, *::before, *::after { box-sizing: border-box; }
       html, body { width:100%; max-width:100%; overflow-x:hidden; }
-  body { font-family: Arial, sans-serif; padding: 24px; margin: 0; }
-      nav { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
-      nav a { margin-right: 12px; }
+  body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        --page-padding: 24px;
+        padding: var(--page-padding);
+      }
+  .fullbleed { display:block; }
+      nav { display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
+      nav a {
+        flex:1 1 180px;
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        padding:12px 16px;
+        border-radius:12px;
+        border:1px solid #0c66d4;
+        background:#fff;
+        color:#0c66d4;
+        text-decoration:none;
+        font-weight:600;
+        min-height:56px;
+        transition:background .18s ease, color .18s ease;
+      }
+      nav a:hover,
+      nav a:focus {
+        background:#0c66d4;
+        color:#fff;
+      }
       /* compact floating theme toggle (icon) */
       #themeToggleBtn {
         width:44px; height:44px; display:flex; align-items:center; justify-content:center;
@@ -29,6 +54,10 @@
       .muted { color:#666; font-size:12px; }
     .grid2 { display:grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 12px; }
   .grid3 { display:grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr) minmax(0,1fr); gap: 8px; }
+  .action-row { margin-top:8px; display:grid; grid-template-columns: minmax(0,1fr) auto; gap:8px; }
+  .action-row button { margin-top:0; }
+  .contact-panel-toggle { margin:0 0 12px; }
+  .contact-panel-toggle button { margin-top:0; padding:10px 16px; }
   @media (max-width: 900px) { .grid3 { grid-template-columns: 1fr 1fr; } }
   @media (max-width: 560px) { .grid3 { grid-template-columns: 1fr; } }
       .digest-wrap { margin-top: 8px; }
@@ -39,7 +68,17 @@
       @media (max-width: 900px) { .digest-cards { grid-template-columns: repeat(2, 1fr); } }
       @media (max-width: 520px) { .digest-cards { grid-template-columns: 1fr; } }
       @media (max-width: 720px) { .grid2 { grid-template-columns: 1fr; } }
-  @media (max-width: 640px) { body { padding:16px; } input, select, textarea { font-size:18px; } button { padding:12px 16px; min-height:clamp(48px,8vh,64px); font-size:clamp(16px,2.8vw + 12px,20px); width:100%; border-radius:10px; } }
+  @media (max-width: 640px) {
+        body { --page-padding:16px; padding: var(--page-padding); }
+        input, select, textarea { font-size:18px; }
+        button { padding:12px 16px; min-height:clamp(48px,8vh,64px); font-size:clamp(16px,2.8vw + 12px,20px); width:100%; border-radius:10px; }
+        .action-row { grid-template-columns: 1fr; }
+    .table-wrap button,
+    .digest-card button,
+    #newContactPanel button,
+    .contact-panel-toggle button { font-size:clamp(16px,2.8vw + 12px,20px); }
+    .fullbleed { margin-left: calc(var(--page-padding) * -1); margin-right: calc(var(--page-padding) * -1); padding-left: var(--page-padding); padding-right: var(--page-padding); }
+      }
       /* Mobile: stack nav vertically and make full-width buttons */
       @media (max-width: 650px) {
         nav { flex-direction: column; align-items: stretch; }
@@ -51,6 +90,8 @@
         th, td { border-bottom:1px solid #333; }
         input, textarea, select { background:#1e1e1e; color:#eaeaea; border:1px solid #333; }
         button { background:#2a2a2a; color:#eaeaea; border:1px solid #444; }
+        nav a { background:#1a1a1a; border-color:#3769e6; color:#8ab4ff; }
+        nav a:hover, nav a:focus { background:#1f3a75; color:#fff; }
         .digest-card { background:#1a1a1a; border-color:#333; }
         .digest-card .meta { color:#aaa; }
         .muted { color:#aaa; }
@@ -63,6 +104,10 @@
       body.theme-dark .digest-card { background:#1a1a1a; border-color:#333; }
       body.theme-dark .digest-card .meta, body.theme-dark .muted { color:#aaa; }
       body.theme-light { background:#fff; color:#111; }
+      body.theme-dark nav a { background:#1a1a1a; border-color:#3769e6; color:#8ab4ff; }
+      body.theme-dark nav a:hover, body.theme-dark nav a:focus { background:#1f3a75; color:#fff; }
+      body.theme-light nav a { background:#fff; border-color:#0c66d4; color:#0c66d4; }
+      body.theme-light nav a:hover, body.theme-light nav a:focus { background:#0c66d4; color:#fff; }
       body.theme-dark #themeToggleBtn { background:#1a1a1a; color:#8ab4ff; border-color:#3769e6; }
       body.theme-dark #themeToggleBtn:hover { background:#1f3a75; color:#eaeaea; }
     </style>
@@ -611,7 +656,7 @@
     </script>
   </head>
   <body>
-    <nav>
+    <nav class="fullbleed">
       <!-- 絶対URL化で iframe / 相対リンクの /blank 問題を回避 -->
       <a href="<?= ScriptApp.getService().getUrl(); ?>?page=index">メニューに戻る</a>
       <a href="<?= ScriptApp.getService().getUrl(); ?>?page=facilities">施設登録</a>
@@ -687,9 +732,9 @@
             </select>
           </div>
         </div>
-        <div style="margin-top:8px; display:grid; grid-template-columns: 1fr auto; gap:8px;">
+        <div class="action-row fullbleed">
           <input id="facilityKw" type="text" placeholder="キーワード（名称/住所/備考）" oninput="updateFacilityOptionsDebounced()">
-          <button type="button" onclick="updateFacilityOptions()" style="margin:0;">候補を更新</button>
+          <button type="button" onclick="updateFacilityOptions()">候補を更新</button>
         </div>
       </div>
       <select id="reportFacility" required></select>
@@ -738,8 +783,8 @@
         </div>
         <button type="button" onclick="addContactFromReport()" style="margin-top:8px;">担当者を追加</button>
       </div>
-      <div style="margin:0 0 12px;">
-        <button type="button" onclick="toggleNewContactPanel()" style="padding:6px 10px;">担当者追加パネルを開く / 閉じる</button>
+      <div class="contact-panel-toggle fullbleed">
+        <button type="button" onclick="toggleNewContactPanel()">担当者追加パネルを開く / 閉じる</button>
       </div>
       <label for="reporterSelect">報告者（社員）</label>
       <select id="reporterSelect" required>
@@ -802,7 +847,9 @@
           <label for="reminderFlag" style="margin:0;">リマインド（要フォロー）</label>
         </div>
       </div>
-      <button type="submit">営業報告を登録</button>
+      <div class="fullbleed">
+        <button type="submit">営業報告を登録</button>
+      </div>
     </form>
 
     <h2>施設別の営業報告</h2>
