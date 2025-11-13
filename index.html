@@ -8,9 +8,12 @@
       :root { color-scheme: light dark; }
 
       /* ===== Base Layout ===== */
+      *, *::before, *::after { box-sizing: border-box; }
+      html, body { width:100%; max-width:100%; overflow-x:hidden; }
+
       body {
         font-family: Arial, sans-serif;
-          padding: 40px;
+        padding: 40px;
         margin: 0;
       }
 
@@ -34,6 +37,9 @@
         gap: 14px;
         max-width: 480px;
       }
+        .menu-list {
+          max-width: 100%;
+        }
 
       .menu-item {
         display: block;
@@ -50,6 +56,10 @@
         transition: all .2s;
         min-height: 60px;
       }
+        .menu-item {
+          min-height: clamp(56px, 10vh, 72px);
+          font-size: clamp(16px, 2.8vw + 12px, 20px);
+        }
 
       .menu-item:hover,
       .menu-item:active {
@@ -76,6 +86,11 @@
         transition: all .2s;
         min-height: 60px;
       }
+        #themeToggleBtn {
+          min-height: clamp(56px, 10vh, 72px);
+          font-size: clamp(16px, 2.8vw + 12px, 20px);
+          padding-block: clamp(14px, 2vh, 18px);
+        }
 
       #themeToggleBtn:hover {
         background: var(--btnHoverBg);
@@ -117,7 +132,7 @@
         }
       }
 
-      /* Apply background / text color using variables */
+      /* Apply theme vars */
       body {
         background: var(--bg);
         color: var(--text);
@@ -128,18 +143,25 @@
         body { padding: 12px; }
 
         h1 { font-size: 20px; }
+
         .menu-item,
         #themeToggleBtn {
           padding: 20px;
           font-size: 19px;
           min-height: 64px;
+          border-radius: 12px;
         }
       }
-
+        @media (max-width: 600px) {
+          .menu-item {
+            padding-block: clamp(14px, 2vh, 18px);
+          }
+          #themeToggleBtn {
+            padding-block: clamp(14px, 2vh, 18px);
+          }
+        }
     </style>
 
-      *, *::before, *::after { box-sizing: border-box; }
-      html, body { width:100%; max-width:100%; overflow-x:hidden; }
     <script>
       function applyTheme(pref) {
         document.body.classList.remove("theme-dark", "theme-light");
@@ -163,7 +185,8 @@
 
       function toggleTheme() {
         const cur = localStorage.getItem("theme") || "system";
-        const next = cur === "system" ? "dark" : cur === "dark" ? "light" : "system";
+        const next = cur === "system" ? "dark" :
+                     cur === "dark"   ? "light" : "system";
         localStorage.setItem("theme", next);
         applyTheme(next);
         updateThemeButton(next);

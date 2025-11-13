@@ -22,11 +22,11 @@
       th, td { border-bottom:1px solid #eee; padding:8px; text-align:left; }
       .muted { color:#666; font-size:12px; }
   .row { display:grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 12px; }
-  @media (max-width: 720px) { .row { grid-template-columns: 1fr; } body { padding: 16px; } input, select, textarea, button { font-size:16px; } button { padding:12px 16px; min-height:44px; } }
+  @media (max-width: 720px) { .row { grid-template-columns: 1fr; } body { padding: 16px; } input, select, textarea { font-size:18px; } button { padding:12px 16px; min-height:clamp(48px,8vh,64px); font-size:clamp(16px,2.8vw + 12px,20px); width:100%; border-radius:10px; } }
       /* Mobile: stack nav vertically and make full-width buttons */
       @media (max-width: 650px) {
         nav { flex-direction: column; align-items: stretch; }
-        nav a, nav button { width: 100%; margin: 0 0 8px 0; font-size: 16px; padding: 16px 18px; min-height: 56px; border-radius: 0; }
+        nav a, nav button { width: 100%; margin: 0 0 8px 0; border-radius: 10px; min-height: clamp(56px,10vh,72px); font-size: clamp(16px, 2.8vw + 12px, 20px); padding: clamp(14px,2vh,18px) 18px; }
         nav a { margin-right: 0; }
         #themeToggleBtn { width:100%; }
       }
