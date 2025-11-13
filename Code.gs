@@ -1,10 +1,10 @@
-// 利用するスプレッドシートID（環境に合わせて差し替え可能）
-const SPREADSHEET_ID = '1bTRSe5l7RTMk1taHNtYaAUMcFBEIwGUf6Yz0icPtp2M';
-const CONFIG_SHEET_NAME = 'Config';
+// 利用するスプレッドシートID（`Config.gs` の DEFAULT_CONFIG または ScriptProperties を参照）
 
 // 共通でSpreadsheetを取得するヘルパー
 function getSpreadsheet() {
-  return SpreadsheetApp.openById(SPREADSHEET_ID);
+  const id = getConfigValue('SPREADSHEET_ID');
+  if (!id) throw new Error('SPREADSHEET_ID が設定されていません');
+  return SpreadsheetApp.openById(String(id));
 }
 
 // Webアプリのエントリポイント。URLの ?page=xxx に応じてHTMLテンプレートを振り分けます。
@@ -301,9 +301,6 @@ function setupSheets() {
   // 市区町村マスタ
   if (!names.includes('Municipalities')) {
     ss.insertSheet('Municipalities').appendRow(['prefecture','municipality']);
-  }
-  if (!names.includes(CONFIG_SHEET_NAME)) {
-    ss.insertSheet(CONFIG_SHEET_NAME).appendRow(['key','value']);
   }
   // 関東（+山梨）市区町村の初期投入（空の場合のみ）
   try { seedMunicipalitiesIfEmpty(); } catch (e) { Logger.log('[seedMunicipalities][WARN] %s', e && e.message); }
@@ -903,12 +900,12 @@ function addReport(data) {
 function setLineWorksWebhookUrl(url) {
   if (!isAdminUser_()) throw new Error('権限がありません');
   if (!url) throw new Error('url は必須です');
-  writeConfigValue('LINE_WORKS_WEBHOOK_URL', String(url));
+  setConfigValue('LINE_WORKS_WEBHOOK_URL', String(url));
   return { ok: true };
 }
 
 function getLineWorksWebhookUrl() {
-  return readConfigValue('LINE_WORKS_WEBHOOK_URL') || '';
+  return getConfigValue('LINE_WORKS_WEBHOOK_URL') || '';
 }
 
 function sendLineWorksWebhook(message) {
@@ -1562,37 +1559,3 @@ function runMergeFacilitiesByAddress() {
   });
 }
 
-function getConfigSheet() {
-  const ss = getSpreadsheet();
-  let sheet = ss.getSheetByName(CONFIG_SHEET_NAME);
-  if (!sheet) {
-    sheet = ss.insertSheet(CONFIG_SHEET_NAME);
-    sheet.appendRow(['key','value']);
-  }
-  return sheet;
-}
-
-function readConfigValue(key) {
-  if (!key) return null;
-  const sheet = getConfigSheet();
-  const rows = sheet.getDataRange().getValues();
-  for (let i = 1; i < rows.length; i++) {
-    if (String(rows[i][0]) === String(key)) {
-      return rows[i][1];
-    }
-  }
-  return null;
-}
-
-function writeConfigValue(key, value) {
-  if (!key) throw new Error('key は必須です');
-  const sheet = getConfigSheet();
-  const rows = sheet.getDataRange().getValues();
-  for (let i = 1; i < rows.length; i++) {
-    if (String(rows[i][0]) === String(key)) {
-      sheet.getRange(i + 1, 2).setValue(value);
-      return;
-    }
-  }
-  sheet.appendRow([key, value]);
-}
