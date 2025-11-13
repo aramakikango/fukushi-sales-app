@@ -10,9 +10,15 @@
       nav { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
       nav a { margin-right: 12px; display:inline-block; padding:10px 14px; border:1px solid #0c66d4; border-radius:6px; text-decoration:none; color:#0c66d4; font-weight:bold; }
       nav a:hover { background:#0c66d4; color:#fff; }
-      #themeToggleBtn { padding:10px 14px; border:1px solid #0c66d4; background:#fff; color:#0c66d4; border-radius:6px; font-weight:bold; cursor:pointer; }
-      #themeToggleBtn:hover { background:#0c66d4; color:#fff; }
-      nav #themeToggleBtn { margin-left:auto; }
+      /* compact floating theme toggle (icon) */
+      #themeToggleBtn {
+        width:44px; height:44px; display:flex; align-items:center; justify-content:center;
+        position:fixed; top:12px; right:12px; z-index:9999;
+        border-radius:999px; border:1px solid rgba(12,102,212,0.12);
+        background:#fff; color:#0c66d4; box-shadow:0 2px 6px rgba(0,0,0,0.08); cursor:pointer;
+        font-size:18px; line-height:1;
+      }
+      #themeToggleBtn:hover { transform:scale(1.06); }
       h1 { margin-bottom: 16px; }
       .filters { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
       .filters > div { flex: 1 1 160px; min-width: 160px; }
@@ -25,9 +31,8 @@
   @media (max-width:650px){
     body { padding:0; }
     nav { flex-direction:column; align-items:stretch; }
-    nav a, nav button { width:100%; margin:0 0 8px 0; border-radius:10px; min-height:clamp(56px,10vh,72px); font-size:clamp(16px, 2.8vw + 12px, 20px); padding:clamp(14px,2vh,18px) 18px; }
+  nav a, nav button { width:100%; margin:0 0 8px 0; border-radius:10px; min-height:clamp(56px,10vh,72px); font-size:clamp(16px, 2.8vw + 12px, 20px); padding:clamp(14px,2vh,18px) 18px; }
     nav a { margin-right:0; }
-    #themeToggleBtn { width:100%; }
     .filters { display:block; padding:12px 16px; }
     .filters > div { min-width:100%; margin-bottom:14px; }
     label { font-size:14px; }
@@ -49,8 +54,8 @@
       body.theme-dark th { background:#1a1a1a; }
       body.theme-dark select, body.theme-dark input { background:#1e1e1e; color:#eaeaea; border:1px solid #333; }
       body.theme-dark .empty { color:#aaa; }
-  body.theme-dark #themeToggleBtn { background:#1a1a1a; color:#8ab4ff; border-color:#3769e6; }
-  body.theme-dark #themeToggleBtn:hover { background:#1f3a75; color:#eaeaea; }
+  body.theme-dark #themeToggleBtn { background:#1a1a1a; color:#ffd580; border-color:#3769e6; box-shadow:none; }
+  body.theme-dark #themeToggleBtn:hover { transform:scale(1.06); }
   body.theme-dark nav a { color:#8ab4ff; border-color:#3769e6; }
   body.theme-dark nav a:hover { background:#1f3a75; color:#eaeaea; }
       body.theme-light { background:#fff; color:#111; }
@@ -63,7 +68,13 @@
         __kwTimer = setTimeout(function(){ updateResults(); }, 250);
       }
       function applyTheme(pref){ document.body.classList.remove('theme-dark','theme-light'); if(pref==='dark')document.body.classList.add('theme-dark'); if(pref==='light')document.body.classList.add('theme-light'); }
-      function updateThemeButton(pref){ const b=document.getElementById('themeToggleBtn'); if(b) b.textContent = pref==='dark'?'テーマ: ダーク':(pref==='light'?'テーマ: ライト':'テーマ: 自動'); }
+      function updateThemeButton(pref){
+        const b = document.getElementById('themeToggleBtn');
+        if(!b) return;
+        if(pref === 'dark'){ b.innerHTML = '🌙'; b.title = 'テーマ: ダーク'; b.setAttribute('aria-label','ダークモード'); }
+        else if(pref === 'light'){ b.innerHTML = '☀️'; b.title = 'テーマ: ライト'; b.setAttribute('aria-label','ライトモード'); }
+        else { b.innerHTML = '🌓'; b.title = 'テーマ: 自動'; b.setAttribute('aria-label','テーマ: 自動'); }
+      }
       function initTheme(){ const p=localStorage.getItem('theme')||'system'; applyTheme(p); updateThemeButton(p); }
       function toggleTheme(){ const cur=localStorage.getItem('theme')||'system'; const next=cur==='system'?'dark':(cur==='dark'?'light':'system'); localStorage.setItem('theme',next); applyTheme(next); updateThemeButton(next); }
       window.addEventListener('load', initTheme);
@@ -156,7 +167,7 @@
       <a href="<?= ScriptApp.getService().getUrl(); ?>?page=manage">施設・担当者管理</a>
       <a href="<?= ScriptApp.getService().getUrl(); ?>?page=visits">問い合わせ記録</a>
       <a href="<?= ScriptApp.getService().getUrl(); ?>?page=reports">営業報告</a>
-      <button id="themeToggleBtn" type="button" onclick="toggleTheme()">テーマ: 自動</button>
+  <button id="themeToggleBtn" type="button" onclick="toggleTheme()" aria-label="テーマ切替">🌓</button>
     </nav>
     <h1>営業先検索</h1>
     <div id="adminMergeBox" style="display:none; margin:8px 0; padding:10px; border:1px solid #f0ad4e; border-radius:6px; background:#fff8e1;">

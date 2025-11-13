@@ -10,10 +10,15 @@
   body { font-family: Arial, sans-serif; padding: 24px; margin: 0; }
       nav { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
       nav a { margin-right: 12px; }
-      nav #themeToggleBtn { margin-left:auto; }
-  /* Theme toggle button base */
-  #themeToggleBtn { padding:10px 14px; border:1px solid #0c66d4; background:#fff; color:#0c66d4; border-radius:6px; font-weight:bold; cursor:pointer; }
-  #themeToggleBtn:hover { background:#0c66d4; color:#fff; }
+      /* compact floating theme toggle (icon) */
+      #themeToggleBtn {
+        width:44px; height:44px; display:flex; align-items:center; justify-content:center;
+        position:fixed; top:12px; right:12px; z-index:9999;
+        border-radius:999px; border:1px solid rgba(12,102,212,0.12);
+        background:#fff; color:#0c66d4; box-shadow:0 2px 6px rgba(0,0,0,0.08); cursor:pointer;
+        font-size:18px; line-height:1;
+      }
+      #themeToggleBtn:hover { transform:scale(1.06); }
       input, select, textarea { padding: 6px; }
   .table-wrap { width:100%; overflow-x:auto; -webkit-overflow-scrolling: touch; }
       table { width: 100%; border-collapse: collapse; margin-top: 16px; min-width: 720px; }
@@ -26,8 +31,7 @@
       @media (max-width: 650px) {
         nav { flex-direction: column; align-items: stretch; }
         nav a, nav button { width: 100%; margin: 0 0 8px 0; border-radius: 10px; min-height: clamp(56px,10vh,72px); font-size: clamp(16px, 2.8vw + 12px, 20px); padding: clamp(14px,2vh,18px) 18px; }
-        nav a { margin-right: 0; }
-        #themeToggleBtn { width:100%; }
+  nav a { margin-right: 0; }
       }
       .muted { color: #666; font-size: 12px; }
       .flex { display: flex; gap: 8px; align-items: center; }
@@ -47,8 +51,8 @@
       body.theme-dark #themeToggleBtn:hover { background:#1f3a75; color:#eaeaea; }
     </style>
     <script>
-      function applyTheme(pref){ document.body.classList.remove('theme-dark','theme-light'); if(pref==='dark')document.body.classList.add('theme-dark'); if(pref==='light')document.body.classList.add('theme-light'); }
-      function updateThemeButton(pref){ const b=document.getElementById('themeToggleBtn'); if(b) b.textContent = pref==='dark'?'テーマ: ダーク':(pref==='light'?'テーマ: ライト':'テーマ: 自動'); }
+  function applyTheme(pref){ document.body.classList.remove('theme-dark','theme-light'); if(pref==='dark')document.body.classList.add('theme-dark'); if(pref==='light')document.body.classList.add('theme-light'); }
+  function updateThemeButton(pref){ const b=document.getElementById('themeToggleBtn'); if(!b) return; if(pref==='dark'){ b.innerHTML='🌙'; b.title='テーマ: ダーク'; b.setAttribute('aria-label','ダークモード'); } else if(pref==='light'){ b.innerHTML='☀️'; b.title='テーマ: ライト'; b.setAttribute('aria-label','ライトモード'); } else { b.innerHTML='🌓'; b.title='テーマ: 自動'; b.setAttribute('aria-label','テーマ: 自動'); } }
       function initTheme(){ const p=localStorage.getItem('theme')||'system'; applyTheme(p); updateThemeButton(p); }
       function toggleTheme(){ const cur=localStorage.getItem('theme')||'system'; const next=cur==='system'?'dark':(cur==='dark'?'light':'system'); localStorage.setItem('theme',next); applyTheme(next); updateThemeButton(next); }
       // 施設一覧の管理
@@ -310,7 +314,7 @@
       <a href="<?= ScriptApp.getService().getUrl(); ?>?page=visits">問い合わせ記録</a>
       <a href="<?= ScriptApp.getService().getUrl(); ?>?page=reports">営業報告</a>
       <a href="<?= ScriptApp.getService().getUrl(); ?>?page=employees">社員</a>
-      <button id="themeToggleBtn" type="button" onclick="toggleTheme()">テーマ: 自動</button>
+  <button id="themeToggleBtn" type="button" onclick="toggleTheme()" aria-label="テーマ切替">🌓</button>
     </nav>
 
     <h1>施設・担当者 管理</h1>

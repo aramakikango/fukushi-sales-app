@@ -73,29 +73,15 @@
         margin-bottom: 16px;
       }
 
+      /* compact floating theme toggle (icon) */
       #themeToggleBtn {
-        width: 100%;
-        padding: 16px;
-        font-size: 18px;
-        border-radius: 12px;
-        border: 2px solid var(--border);
-        font-weight: bold;
-        cursor: pointer;
-        background: var(--btnBg);
-        color: var(--textLink);
-        transition: all .2s;
-        min-height: 60px;
+        width:44px; height:44px; display:flex; align-items:center; justify-content:center;
+        position:fixed; top:12px; right:12px; z-index:9999;
+        border-radius:999px; border:2px solid rgba(55,103,230,0.12);
+        background:var(--btnBg); color:var(--textLink); box-shadow:0 2px 6px rgba(0,0,0,0.08); cursor:pointer;
+        font-size:18px; line-height:1; transition: transform .12s ease;
       }
-        #themeToggleBtn {
-          min-height: clamp(56px, 10vh, 72px);
-          font-size: clamp(16px, 2.8vw + 12px, 20px);
-          padding-block: clamp(14px, 2vh, 18px);
-        }
-
-      #themeToggleBtn:hover {
-        background: var(--btnHoverBg);
-        color: var(--btnHoverText);
-      }
+      #themeToggleBtn:hover { transform:scale(1.06); }
 
       /* ===== Light Theme Variables ===== */
       body.theme-light {
@@ -170,11 +156,10 @@
       }
 
       function updateThemeButton(pref) {
-        const btn = document.getElementById("themeToggleBtn");
-        btn.textContent =
-          pref === "dark" ? "テーマ: ダーク" :
-          pref === "light" ? "テーマ: ライト" :
-          "テーマ: 自動";
+        const btn = document.getElementById("themeToggleBtn"); if (!btn) return;
+        if (pref === 'dark') { btn.innerHTML = '🌙'; btn.title = 'テーマ: ダーク'; btn.setAttribute('aria-label','ダークモード'); }
+        else if (pref === 'light') { btn.innerHTML = '☀️'; btn.title = 'テーマ: ライト'; btn.setAttribute('aria-label','ライトモード'); }
+        else { btn.innerHTML = '🌓'; btn.title = 'テーマ: 自動'; btn.setAttribute('aria-label','テーマ: 自動'); }
       }
 
       function initTheme() {
@@ -198,7 +183,7 @@
 
   <body>
     <div class="theme-wrap">
-      <button id="themeToggleBtn" onclick="toggleTheme()">テーマ: 自動</button>
+      <button id="themeToggleBtn" onclick="toggleTheme()" aria-label="テーマ切替">🌓</button>
     </div>
 
     <h1>営業管理メニュー</h1>
