@@ -234,7 +234,7 @@
         const params = { prefecture: pref, municipality: mun, facilityType: type, q: kw, limit: 400 };
         // 空値を削除
         Object.keys(params).forEach(k=>{ if (!params[k]) delete params[k]; });
-        const select = document.getElementById('reportFacility');
+    const select = document.getElementById('reportFacility');
         select.innerHTML = '<option value="">検索中...</option>';
         google.script.run.withSuccessHandler(function(list){
           // 最近使った施設を上位に
@@ -253,8 +253,10 @@
             recent.forEach(function(f){
               const opt = document.createElement('option');
               opt.value = f.id;
-              opt.textContent = f.name + (f.municipality? '（'+f.municipality+'）':'') + (f.address? ' — ' + f.address : '');
+              opt.textContent = f.name + (f.municipality? '（'+f.municipality+'）':'');
               if (f.facilityType) opt.setAttribute('data-facility-type', f.facilityType);
+              if (f.address) opt.setAttribute('data-address', f.address);
+              if (f.notes) opt.setAttribute('data-notes', f.notes);
               og.appendChild(opt);
             });
             select.appendChild(og);
@@ -263,17 +265,30 @@
           reorder.forEach(function(f){
             const opt = document.createElement('option');
             opt.value = f.id;
-            opt.textContent = f.name + (f.municipality? '（'+f.municipality+'）':'') + (f.address ? ' — ' + f.address : '');
+            opt.textContent = f.name + (f.municipality? '（'+f.municipality+'）':'');
             if (f.facilityType) opt.setAttribute('data-facility-type', f.facilityType);
+            if (f.address) opt.setAttribute('data-address', f.address);
+            if (f.notes) opt.setAttribute('data-notes', f.notes);
             og2.appendChild(opt);
           });
           select.appendChild(og2);
+          showSelectedFacilityDescription();
         }).searchFacilities(params);
       }
       let __facKwTimer=null;
       function updateFacilityOptionsDebounced(){
         if (__facKwTimer) clearTimeout(__facKwTimer);
         __facKwTimer = setTimeout(updateFacilityOptions, 250);
+      }
+
+      function showSelectedFacilityDescription(){
+        const sel = document.getElementById('reportFacility');
+        const box = document.getElementById('facilityDescBox');
+        if (!sel || !box) return;
+        const opt = sel.options[sel.selectedIndex];
+        if (!opt || !opt.value) { box.textContent = ''; return; }
+        const notes = opt.getAttribute('data-notes') || '';
+        box.textContent = notes ? ('説明: ' + notes) : '';
       }
 
       function loadReports(facilityId) {
@@ -398,6 +413,7 @@
           loadReports(this.value);
           loadContactsForFacility(this.value);
           rebuildNextActionOptions();
+          showSelectedFacilityDescription();
         });
           document.getElementById('contactSelect').addEventListener('change', showSelectedContactNotes);
         document.getElementById('channelSelect').addEventListener('change', function(){
@@ -737,8 +753,9 @@
           <button type="button" onclick="updateFacilityOptions()">候補を更新</button>
         </div>
       </div>
-      <select id="reportFacility" required></select>
-      <div class="muted" id="activityBox" style="margin-top:4px;"></div>
+  <select id="reportFacility" required></select>
+  <div class="muted" id="facilityDescBox" style="margin-top:4px; font-size:13px;"></div>
+  <div class="muted" id="activityBox" style="margin-top:4px;"></div>
   <div id="recentDigest" class="digest-wrap"></div>
       <label for="reportDate">報告日時</label>
       <input type="datetime-local" id="reportDate">
