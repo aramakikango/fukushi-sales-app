@@ -46,7 +46,13 @@
       #themeToggleBtn:hover { transform:scale(1.06); }
   label { display: block; margin-top: 12px; }
       input, textarea, select { width: 100%; padding: 6px; }
-      button { margin-top: 16px; padding: 8px 16px; }
+      button {
+        margin-top: 16px;
+        padding: clamp(12px, 2vw, 18px) clamp(18px, 3vw, 26px);
+        font-size: clamp(16px, 2vw + 10px, 22px);
+        min-height: 58px;
+        border-radius: 14px;
+      }
   .table-wrap { width:100%; overflow-x:auto; -webkit-overflow-scrolling: touch; }
       table { width: 100%; border-collapse: collapse; margin-top: 24px; min-width: 720px; }
       th, td { border-bottom: 1px solid #eee; padding: 8px; text-align: left; vertical-align: top; }
