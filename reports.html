@@ -58,7 +58,7 @@
       th, td { border-bottom: 1px solid #eee; padding: 8px; text-align: left; vertical-align: top; }
       h2 { margin-top: 28px; }
       .muted { color:#666; font-size:12px; }
-    .grid2 { display:grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 12px; }
+  .next-action-grid { display:grid; grid-template-columns: 1fr; gap: 12px; }
   .grid3 { display:grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr) minmax(0,1fr); gap: 8px; }
   .action-row { margin-top:8px; display:grid; grid-template-columns: minmax(0,1fr) auto; gap:8px; }
   .action-row button { margin-top:0; }
@@ -73,7 +73,13 @@
       .digest-card .meta { color:#555; margin-bottom:4px; }
       @media (max-width: 900px) { .digest-cards { grid-template-columns: repeat(2, 1fr); } }
       @media (max-width: 520px) { .digest-cards { grid-template-columns: 1fr; } }
-      @media (max-width: 720px) { .grid2 { grid-template-columns: 1fr; } }
+      @media (max-width: 720px) { .next-action-grid { grid-template-columns: 1fr; } }
+      .edge-expand {
+        margin-left: calc(var(--page-padding) * -1);
+        margin-right: calc(var(--page-padding) * -1);
+        padding-left: var(--page-padding);
+        padding-right: var(--page-padding);
+      }
       @media (max-width: 900px) {
         nav { flex-direction: column; align-items: stretch; }
         nav a, nav button { width: 100%; margin: 0 0 8px 0; border-radius: 12px; min-height: clamp(56px, 9vh, 68px); font-size: clamp(16px, 2vw + 12px, 20px); padding: clamp(14px,2vh,18px) 18px; }
@@ -828,7 +834,7 @@
       <textarea id="details" rows="4"></textarea>
       <label for="followUp">フォローアップ / 次アクション</label>
       <input type="text" id="followUp">
-      <div class="grid2">
+  <div class="next-action-grid edge-expand">
         <div>
           <label for="nextActionSelect">次にやること（ステージ/種類に応じ候補）</label>
           <select id="nextActionSelect"></select>
@@ -880,7 +886,7 @@
           <label for="reminderFlag" style="margin:0;">リマインド（要フォロー）</label>
         </div>
       </div>
-      <div class="fullbleed">
+  <div class="fullbleed edge-expand">
         <button type="submit">営業報告を登録</button>
       </div>
     </form>
