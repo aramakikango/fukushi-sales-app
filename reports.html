@@ -302,6 +302,18 @@
         __facKwTimer = setTimeout(updateFacilityOptions, 250);
       }
 
+      function addMunicipalityFromFilter() {
+        const pref = document.getElementById('facilityPref').value;
+        const manual = document.getElementById('facilityMunCustom').value.trim();
+        if (!pref) { alert('都道府県を先に選択してください'); return; }
+        if (!manual) { alert('追加する市区町村を入力してください'); return; }
+        google.script.run.withSuccessHandler(function(){
+          alert('市区町村「' + manual + '」を登録しました');
+          document.getElementById('facilityMunCustom').value = '';
+          onFacilityPrefChange();
+        }).addMunicipality({ prefecture: pref, municipality: manual });
+      }
+
       function showSelectedFacilityDescription(){
         const sel = document.getElementById('reportFacility');
         const box = document.getElementById('facilityDescBox');
@@ -717,6 +729,11 @@
           <div>
             <label for="facilityMun" style="margin-top:0;">市区町村</label>
             <select id="facilityMun" onchange="updateFacilityOptions()"><option value="">全て</option></select>
+            <div style="display:flex; gap:6px; margin-top:6px; align-items:center;">
+              <input id="facilityMunCustom" type="text" placeholder="候補にない市区町村" style="flex:1; padding:4px 6px; font-size:13px;">
+              <button type="button" style="padding:4px 10px; font-size:13px;" onclick="addMunicipalityFromFilter()">登録</button>
+            </div>
+            <div class="muted" style="font-size:11px; margin-top:2px;">選択肢にない市区町村は登録して再読み込みしてください。</div>
           </div>
           <div>
             <label for="facilityTypeFilter" style="margin-top:0;">事業所種類</label>
