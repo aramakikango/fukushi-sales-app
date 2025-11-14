@@ -58,8 +58,8 @@
   .action-row button { margin-top:0; }
   .contact-panel-toggle { margin:0 0 12px; }
   .contact-panel-toggle button { margin-top:0; padding:10px 16px; }
-  @media (max-width: 900px) { .grid3 { grid-template-columns: 1fr 1fr; } }
-  @media (max-width: 560px) { .grid3 { grid-template-columns: 1fr; } }
+      @media (max-width: 900px) { .grid3 { grid-template-columns: 1fr 1fr; } }
+      @media (max-width: 560px) { .grid3 { grid-template-columns: 1fr; } }
       .digest-wrap { margin-top: 8px; }
       .digest-cards { display:grid; grid-template-columns: repeat(5, 1fr); gap:8px; }
       .digest-card { border:1px solid #eee; border-radius:6px; padding:8px; font-size:12px; background:#fafafa; }
@@ -74,6 +74,8 @@
         nav a { margin-right: 0; }
         .action-row { grid-template-columns: 1fr; }
         .action-row button { width: 100%; justify-self: stretch; }
+        button, .contact-panel-toggle button, #newContactPanel button, table button { width: 100%; border-radius: 12px; margin: 0 0 12px 0; }
+        .action-row button:last-child { margin-bottom: 0; }
       }
   @media (max-width: 640px) {
         body { --page-padding:16px; padding: var(--page-padding); }
