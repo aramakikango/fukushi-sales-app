@@ -1,0 +1,36 @@
+# Sample 1 - labeled
+施設名: あさひホーム
+担当: 鈴木 一郎
+電話: 028-123-4567
+メール: suzuki@example.com
+訪問しました。要約: ケア内容確認。次に資料送付。
+
+# Sample 2 - no labels, single line
+あさひホーム 鈴木さんと面談 電話0281234567 メール suzuki@example.com 要約 利用者の状況確認 次回 2025/12/20 資料送付
+
+# Sample 3 - multiline with next action
+訪問報告
+施設名: さくらの里
+担当者: 田中 花子
+行動: 次に契約書送付、フォロー要
+備考: 食事について要確認
+
+# Sample 4 - email-like name field
+warashibenosato@cc9.ne.jp さんと電話対応 要約: サービス紹介
+
+# Sample 5 - multiple contacts
+施設: しらゆり
+担当: 佐藤 太郎、鈴木 次郎
+電話: 03-9876-5432
+次回: 見学調整
+備考: ケアマネ紹介予定
+
+# Sample 6 - relative date and short
+昨日訪問しました。施設名: みどり館。担当: 田村。要約: 初回相談。次に電話フォロー予定。
+
+# Sample 7 - minimal
+施設: にじ
+要約: 電話で問い合わせ。資料希望。
+
+# Sample 8 - includes stage/priority keywords
+訪問（初回）。新規でヒアリング。要約: 導入検討、最優先で対応希望。次: 資料送付と見積り
