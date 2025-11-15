@@ -3,7 +3,7 @@
   <head>
     <base target="_top">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <style>
+  <style>
       :root { color-scheme: light dark; }
       *, *::before, *::after { box-sizing: border-box; }
       html, body { width:100%; max-width:100%; overflow-x:hidden; }
@@ -84,6 +84,23 @@
         background: #0c66d4;
         color: #fff;
         border-color: #0845a1;
+      }
+      #transcriptionHelper {
+        color: #0e1120;
+      }
+      #transcriptionHelper textarea {
+        color: inherit;
+        background: #fff;
+      }
+      body.theme-dark #transcriptionHelper {
+        color: #e5e8ff;
+        background: #15161c;
+        border-color: #2a2f4a;
+      }
+      body.theme-dark #transcriptionHelper textarea {
+        background: #1b1d27;
+        color: #f5f7ff;
+        border-color: #2a2f4a;
       }
   .table-wrap { width:100%; overflow-x:auto; -webkit-overflow-scrolling: touch; }
       table { width: 100%; border-collapse: collapse; margin-top: 24px; min-width: 720px; }
