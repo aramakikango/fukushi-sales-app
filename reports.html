@@ -44,7 +44,7 @@
         font-size:18px; line-height:1;
       }
       #themeToggleBtn:hover { transform:scale(1.06); }
-  label { display: block; margin-top: 12px; }
+      label { display: block; margin-top: 12px; }
       input, textarea, select { width: 100%; padding: 6px; }
       button {
         margin-top: 16px;
@@ -53,19 +53,50 @@
         min-height: 58px;
         border-radius: 14px;
       }
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        border: 0;
+      }
+      .unknown-contact-group {
+        margin: 6px 0 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .unknown-contact-btn {
+        padding: 12px 16px;
+        border-radius: 12px;
+        border: 1px dashed #0c66d4;
+        background: #fff;
+        color: #0c66d4;
+        font-weight: 600;
+        text-align: center;
+        width: 100%;
+        transition: background .2s ease, color .2s ease, border-color .2s ease;
+      }
+      .unknown-contact-btn.active {
+        background: #0c66d4;
+        color: #fff;
+        border-color: #0845a1;
+      }
   .table-wrap { width:100%; overflow-x:auto; -webkit-overflow-scrolling: touch; }
       table { width: 100%; border-collapse: collapse; margin-top: 24px; min-width: 720px; }
       th, td { border-bottom: 1px solid #eee; padding: 8px; text-align: left; vertical-align: top; }
       h2 { margin-top: 28px; }
       .muted { color:#666; font-size:12px; }
   .next-action-grid { display:grid; grid-template-columns: 1fr; gap: 12px; }
-  .grid3 { display:grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr) minmax(0,1fr); gap: 8px; }
+  .grid3 { display:grid; grid-template-columns: 1fr; gap: 10px; }
   .action-row { margin-top:8px; display:grid; grid-template-columns: minmax(0,1fr) auto; gap:8px; }
   .action-row button { margin-top:0; }
   .contact-panel-toggle { margin:0 0 12px; }
   .contact-panel-toggle button { margin-top:0; padding:10px 16px; }
-      @media (max-width: 900px) { .grid3 { grid-template-columns: 1fr 1fr; } }
-      @media (max-width: 560px) { .grid3 { grid-template-columns: 1fr; } }
+  @media (min-width: 1100px) { .grid3 { grid-template-columns: repeat(3, minmax(0,1fr)); } }
       .digest-wrap { margin-top: 8px; }
       .digest-cards { display:grid; grid-template-columns: repeat(5, 1fr); gap:8px; }
       .digest-card { border:1px solid #eee; border-radius:6px; padding:8px; font-size:12px; background:#fafafa; }
@@ -133,11 +164,37 @@
       body.theme-dark #themeToggleBtn:hover { background:#1f3a75; color:#eaeaea; }
     </style>
     <script>
-  // Theme toggle
-  function applyTheme(pref){ document.body.classList.remove('theme-dark','theme-light'); if(pref==='dark')document.body.classList.add('theme-dark'); if(pref==='light')document.body.classList.add('theme-light'); }
-  function updateThemeButton(pref){ const b=document.getElementById('themeToggleBtn'); if(!b) return; if(pref==='dark'){ b.innerHTML='🌙'; b.title='テーマ: ダーク'; b.setAttribute('aria-label','ダークモード'); } else if(pref==='light'){ b.innerHTML='☀️'; b.title='テーマ: ライト'; b.setAttribute('aria-label','ライトモード'); } else { b.innerHTML='🌓'; b.title='テーマ: 自動'; b.setAttribute('aria-label','テーマ: 自動'); } }
-  function initTheme(){ const p=localStorage.getItem('theme')||'system'; applyTheme(p); updateThemeButton(p); }
-  function toggleTheme(){ const cur=localStorage.getItem('theme')||'system'; const next=cur==='system'?'dark':(cur==='dark'?'light':'system'); localStorage.setItem('theme',next); applyTheme(next); updateThemeButton(next); }
+    // Theme toggle
+    function applyTheme(pref){ document.body.classList.remove('theme-dark','theme-light'); if(pref==='dark')document.body.classList.add('theme-dark'); if(pref==='light')document.body.classList.add('theme-light'); }
+    function updateThemeButton(pref){ const b=document.getElementById('themeToggleBtn'); if(!b) return; if(pref==='dark'){ b.innerHTML='🌙'; b.title='テーマ: ダーク'; b.setAttribute('aria-label','ダークモード'); } else if(pref==='light'){ b.innerHTML='☀️'; b.title='テーマ: ライト'; b.setAttribute('aria-label','ライトモード'); } else { b.innerHTML='🌓'; b.title='テーマ: 自動'; b.setAttribute('aria-label','テーマ: 自動'); } }
+    function initTheme(){ const p=localStorage.getItem('theme')||'system'; applyTheme(p); updateThemeButton(p); }
+    function toggleTheme(){ const cur=localStorage.getItem('theme')||'system'; const next=cur==='system'?'dark':(cur==='dark'?'light':'system'); localStorage.setItem('theme',next); applyTheme(next); updateThemeButton(next); }
+    const REPORTER_STORAGE_KEY = 'reports_lastReporterId';
+    function getStoredReporterId() {
+      try {
+        return localStorage.getItem(REPORTER_STORAGE_KEY) || '';
+      } catch (err) {
+        return '';
+      }
+    }
+    function setStoredReporterId(id) {
+      if (!id) return;
+      try {
+        localStorage.setItem(REPORTER_STORAGE_KEY, id);
+      } catch (err) {
+        // ignore
+      }
+    }
+    function restoreLastReporterSelection() {
+      const sel = document.getElementById('reporterSelect');
+      if (!sel) return;
+      const stored = getStoredReporterId();
+      if (!stored) return;
+      const match = Array.from(sel.options).find(opt => opt.value === stored);
+      if (match) {
+        sel.value = stored;
+      }
+    }
       // 取得した営業報告の簡易キャッシュ（コピーに使用）
       let REPORT_CACHE = {};
       function nowForDatetimeLocal() {
@@ -391,6 +448,7 @@
               const o = document.createElement('option'); o.value = emp.name || ''; o.textContent = emp.name || ''; ownerSel.appendChild(o);
             });
           }
+          restoreLastReporterSelection();
         }).getEmployees();
       }
 
@@ -431,7 +489,30 @@
         infoBox.textContent = notes ? ('備考: ' + notes) : '';
         // 担当者を選んだら「担当者不明」は自動で外す
         const unk = document.getElementById('unknownContactChk');
-        if (unk) unk.checked = false;
+        if (unk) {
+          unk.checked = false;
+          updateUnknownButtonState(false);
+        }
+      }
+
+      function toggleUnknownContact(forceState) {
+        const checkbox = document.getElementById('unknownContactChk');
+        if (!checkbox) return;
+        const nextState = typeof forceState === 'boolean' ? forceState : !checkbox.checked;
+        checkbox.checked = nextState;
+        updateUnknownButtonState(nextState);
+        if (nextState) {
+          const select = document.getElementById('contactSelect');
+          if (select) select.selectedIndex = 0;
+          showSelectedContactNotes();
+        }
+      }
+
+      function updateUnknownButtonState(active) {
+        const btn = document.getElementById('unknownContactBtn');
+        if (!btn) return;
+        btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+        btn.classList.toggle('active', !!active);
       }
 
       window.addEventListener('load', function() {
@@ -442,6 +523,10 @@
         } catch(e){}
         onFacilityPrefChange();
         loadEmployeesForReporter();
+        const reporterSel = document.getElementById('reporterSelect');
+        if (reporterSel) {
+          reporterSel.addEventListener('change', function(){ setStoredReporterId(this.value); });
+        }
         document.getElementById('reportFacility').addEventListener('change', function() {
           loadReports(this.value);
           loadContactsForFacility(this.value);
@@ -449,6 +534,11 @@
           showSelectedFacilityDescription();
         });
           document.getElementById('contactSelect').addEventListener('change', showSelectedContactNotes);
+          const unknownChk = document.getElementById('unknownContactChk');
+          if (unknownChk) {
+            unknownChk.addEventListener('change', function(){ updateUnknownButtonState(this.checked); });
+            updateUnknownButtonState(unknownChk.checked);
+          }
         document.getElementById('channelSelect').addEventListener('change', function(){
           if (this.value === 'その他') {
             document.getElementById('channelOtherWrap').style.display = 'block';
@@ -548,7 +638,10 @@
         // 担当者
         const contactSel = document.getElementById('contactSelect');
         const unknownChk = document.getElementById('unknownContactChk');
-        if (unknownChk) unknownChk.checked = (r.contactName === '不明');
+        if (unknownChk) {
+          unknownChk.checked = (r.contactName === '不明');
+          updateUnknownButtonState(unknownChk.checked);
+        }
         if (contactSel && !unknownChk.checked) {
           let set = false;
           if (r.contactId) {
@@ -567,7 +660,7 @@
         const repSel = document.getElementById('reporterSelect');
         if (repSel && r.reporterName) {
           for (let i=0;i<repSel.options.length;i++) {
-            if (repSel.options[i].text === r.reporterName) { repSel.selectedIndex = i; break; }
+            if (repSel.options[i].text === r.reporterName) { repSel.selectedIndex = i; setStoredReporterId(repSel.value); break; }
           }
         }
         // 要約・詳細・フォロー
@@ -644,6 +737,295 @@
         wrap.innerHTML = html;
       }
 
+      let LAST_TRANSCRIPTION = null;
+      const CHANNEL_CANDIDATES = ['訪問', '電話', '利用者送迎', 'FAX', 'メール', 'オンライン', 'その他'];
+      const STAGE_KEYWORDS = {
+        '新規接触': ['新規', '初回', 'はじめて', '相談来所'],
+        '継続交渉': ['継続', '交渉', '提案準備'],
+        '見積・提案中': ['見積', '提案', '資料送付'],
+        '意思決定待ち': ['意思決定', '検討中', '承認待ち'],
+        '受注': ['受注', '契約', '導入'],
+        '失注': ['失注', '見送り', '断り']
+      };
+      const PRIORITY_KEYWORDS = {
+        '高': ['最優先', '急ぎ', '早急', '至急'],
+        '中': ['調整', '確認', '進捗'],
+        '低': ['今後', '未定', '余裕']
+      };
+
+      function parseTranscriptionInput() {
+        const textarea = document.getElementById('transcriptionInput');
+        if (!textarea) return;
+        const text = textarea.value.trim();
+        if (!text) { alert('文字起こしテキストを貼り付けてください'); return; }
+        const parsed = parseTranscriptionText(text);
+        LAST_TRANSCRIPTION = parsed;
+        showTranscriptionPreview(parsed);
+        const applyBtn = document.getElementById('applyTranscriptionBtn');
+        if (applyBtn) applyBtn.disabled = false;
+      }
+
+      function parseTranscriptionText(text) {
+        const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+        const used = new Set();
+        const result = {
+          facilityName: '',
+          contactName: '',
+          contactPhone: '',
+          contactEmail: '',
+          summary: '',
+          details: '',
+          nextAction: '',
+          followUp: '',
+          stage: '',
+          priority: '',
+          channel: '',
+          reportDate: ''
+        };
+        const emailRegex = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/;
+        const phoneRegex = /0\d{1,4}[\-\s−ー]?\d{1,4}[\-\s−ー]?\d{4}/;
+        const datePattern = /(\d{4}[年\/-]\d{1,2}[月\/-]\d{1,2}日?)/;
+
+        lines.forEach((line, index) => {
+          const lower = line.toLowerCase();
+          if (!result.contactEmail) {
+            const emailMatch = line.match(emailRegex);
+            if (emailMatch) { result.contactEmail = emailMatch[0]; used.add(index); }
+          }
+          if (!result.contactPhone) {
+            const phoneMatch = line.match(phoneRegex);
+            if (phoneMatch) { result.contactPhone = phoneMatch[0]; used.add(index); }
+          }
+          if (!result.facilityName) {
+            const facilityMatch = line.match(/^(?:施設名|事業所名|法人名|団体名|施設|事業所|法人|会社名)[\s:：-]*(.+)/i);
+            if (facilityMatch) { result.facilityName = facilityMatch[1].trim(); used.add(index); }
+            else if (/(?:施設|事業所|法人|会社)/.test(line) && line.length < 40) { result.facilityName = line; used.add(index); }
+          }
+          if (!result.contactName) {
+            const contactMatch = line.match(/^(?:担当者|担当|係|窓口|連絡先)[:：\s-]*(.+)/i);
+            if (contactMatch) { result.contactName = contactMatch[1].trim(); used.add(index); }
+          }
+          if (!result.nextAction && /(次に|次回|アクション|フォロー)/i.test(line)) {
+            result.nextAction = line;
+            used.add(index);
+          }
+          if (!result.followUp && /(フォロー|対応|連絡|追跡)/i.test(line)) {
+            result.followUp = line;
+            used.add(index);
+          }
+          if (!result.stage) {
+            for (const [stage, keys] of Object.entries(STAGE_KEYWORDS)) {
+              if (keys.some(key => lower.includes(key))) {
+                result.stage = stage;
+                used.add(index);
+                break;
+              }
+            }
+          }
+          if (!result.priority) {
+            for (const [priority, keys] of Object.entries(PRIORITY_KEYWORDS)) {
+              if (keys.some(key => lower.includes(key))) {
+                result.priority = priority;
+                used.add(index);
+                break;
+              }
+            }
+          }
+          if (!result.channel) {
+            for (const candidate of CHANNEL_CANDIDATES) {
+              if (line.includes(candidate)) {
+                result.channel = candidate;
+                used.add(index);
+                break;
+              }
+            }
+          }
+          if (!result.summary && /(要約|まとめ|報告|内容)/i.test(line)) {
+            result.summary = line.replace(/^(?:要約|まとめ|報告|内容)[:：\s-]*/i, '').trim();
+            used.add(index);
+          }
+          if (!result.reportDate) {
+            const dateMatch = line.match(datePattern);
+            if (dateMatch) {
+              result.reportDate = parseDateCandidate(dateMatch[1]);
+              used.add(index);
+            }
+          }
+        });
+
+        const detailLines = lines.filter((_, idx) => !used.has(idx));
+        if (!result.summary && detailLines.length) {
+          result.summary = detailLines[0];
+          detailLines.shift();
+        }
+        result.details = detailLines.join('\n');
+        if (!result.reportDate) {
+          const fallback = new Date();
+          result.reportDate = fallback.toISOString();
+        }
+        return result;
+      }
+
+      function parseDateCandidate(value) {
+        const normalized = value.replace(/[年月]/g, '/').replace(/[日]/g, '').replace(/\//g, '/');
+        const clean = normalized.replace(/[^0-9/\-]/g, '');
+        const date = new Date(clean);
+        if (isNaN(date.getTime())) return '';
+        return date.toISOString();
+      }
+
+      function showTranscriptionPreview(parsed) {
+        const preview = document.getElementById('transcriptionPreview');
+        if (!preview) return;
+        const rows = [
+          ['施設候補', parsed.facilityName || '検出なし'],
+          ['担当者', parsed.contactName || '検出なし'],
+          ['電話', parsed.contactPhone || '検出なし'],
+          ['メール', parsed.contactEmail || '検出なし'],
+          ['要約', parsed.summary || '検出なし'],
+          ['詳細抜粋', parsed.details || '検出なし'],
+          ['次アクション', parsed.nextAction || '検出なし'],
+          ['フォロー', parsed.followUp || '検出なし'],
+          ['ステージ', parsed.stage || '検出なし'],
+          ['優先度', parsed.priority || '検出なし'],
+          ['チャンネル', parsed.channel || '検出なし'],
+          ['報告日時', parsed.reportDate ? formatDatetimeForPreview(parsed.reportDate) : '検出なし']
+        ];
+        preview.innerHTML = '<dl style="margin:0;">' + rows.map(([label, value]) => {
+          return '<div style="display:flex; gap:6px; flex-wrap:wrap;"><strong style="width:100px;">' + label + ':</strong><span>' + escapeHtml(value || '') + '</span></div>';
+        }).join('') + '</dl>';
+      }
+
+      function formatDatetimeForPreview(value) {
+        const date = new Date(value);
+        if (isNaN(date.getTime())) return value || '';
+        return date.toLocaleString();
+      }
+
+      function applyTranscriptionResult() {
+        if (!LAST_TRANSCRIPTION) { alert('解析結果がありません'); return; }
+        applyTranscriptionData(LAST_TRANSCRIPTION);
+      }
+
+      function applyTranscriptionData(data) {
+        if (!data) return;
+        const facilitySelect = document.getElementById('reportFacility');
+        if (data.facilityName && facilitySelect) {
+          const matchId = findFacilityOptionByName(data.facilityName);
+          if (matchId) {
+            facilitySelect.value = matchId;
+            facilitySelect.dispatchEvent(new Event('change'));
+          }
+        }
+        if (data.contactName) {
+          setContactByName(data.contactName);
+        } else if (data.contactEmail && document.getElementById('unknownContactChk')) {
+          toggleUnknownContact(true);
+        }
+        if (data.channel) { setChannelValue(data.channel); }
+        const summaryEl = document.getElementById('summary');
+        if (summaryEl && data.summary) summaryEl.value = data.summary;
+        const detailsEl = document.getElementById('details');
+        if (detailsEl && data.details) detailsEl.value = data.details;
+        const followEl = document.getElementById('followUp');
+        if (followEl && data.followUp) followEl.value = data.followUp;
+        if (data.stage) {
+          const stageEl = document.getElementById('statusStage');
+          if (stageEl) { stageEl.value = data.stage; rebuildNextActionOptions(); }
+        }
+        if (data.priority) {
+          const prEl = document.getElementById('priority');
+          if (prEl) prEl.value = data.priority;
+        }
+        if (data.nextAction) {
+          setNextActionValue(data.nextAction);
+        }
+        if (data.reportDate) {
+          const dateField = document.getElementById('reportDate');
+          if (dateField) dateField.value = formatDatetimeForInput(data.reportDate);
+        }
+      }
+
+      function findFacilityOptionByName(name) {
+        if (!name) return '';
+        const select = document.getElementById('reportFacility');
+        if (!select) return '';
+        const target = normalizeForMatch(name);
+        for (let i = 0; i < select.options.length; i++) {
+          const opt = select.options[i];
+          const normalized = normalizeForMatch(opt.textContent || opt.value);
+          if (!normalized) continue;
+          if (normalized.includes(target) || target.includes(normalized)) {
+            return opt.value;
+          }
+        }
+        return '';
+      }
+
+      function normalizeForMatch(value) {
+        if (!value) return '';
+        return value.toLowerCase().replace(/[^0-9a-z\u3040-\u30ff\u3400-\u9fff]+/gi, '').trim();
+      }
+
+      function setContactByName(name) {
+        const select = document.getElementById('contactSelect');
+        if (!select) return false;
+        const target = normalizeForMatch(name);
+        for (let i = 0; i < select.options.length; i++) {
+          const opt = select.options[i];
+          if (!opt.value) continue;
+          if (normalizeForMatch(opt.textContent) === target || normalizeForMatch(opt.textContent).includes(target) || target.includes(normalizeForMatch(opt.textContent))) {
+            select.value = opt.value;
+            showSelectedContactNotes();
+            return true;
+          }
+        }
+        toggleUnknownContact(true);
+        return false;
+      }
+
+      function setChannelValue(channel) {
+        const select = document.getElementById('channelSelect');
+        if (!select || !channel) return;
+        for (let i = 0; i < select.options.length; i++) {
+          const opt = select.options[i];
+          if (opt.value === channel) { select.value = opt.value; return; }
+          if (normalizeForMatch(opt.value) === normalizeForMatch(channel)) { select.value = opt.value; return; }
+        }
+      }
+
+      function setNextActionValue(value) {
+        const select = document.getElementById('nextActionSelect');
+        const manualWrap = document.getElementById('nextActionManualWrap');
+        const manualInput = document.getElementById('nextActionManual');
+        if (!select) return;
+        let found = false;
+        if (value) {
+          for (let i = 0; i < select.options.length; i++) {
+            if (select.options[i].value === value) {
+              select.selectedIndex = i;
+              found = true;
+              break;
+            }
+          }
+        }
+        if (!found && manualWrap && manualInput) {
+          select.value = 'その他';
+          manualWrap.style.display = 'block';
+          manualInput.value = value;
+        } else if (manualWrap && manualInput) {
+          manualWrap.style.display = 'none';
+          manualInput.value = '';
+        }
+      }
+
+      function formatDatetimeForInput(value) {
+        const date = new Date(value);
+        if (isNaN(date.getTime())) return '';
+        const pad = (n) => String(n).padStart(2, '0');
+        return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+      }
+
       // 次アクション候補マスター（ステージ基礎）
       const NEXT_ACTION_BASE = {
         '新規接触': ['福祉サービス案内資料送付','ケアマネ面談調整','導入支援の優先事項ヒアリング','施設見学・体験日程調整'],
@@ -716,6 +1098,17 @@
 
     <h1>営業報告</h1>
     <form id="reportForm" onsubmit="event.preventDefault(); submitReport();">
+      <details id="transcriptionHelper" open style="border:1px solid #d0e5ff; padding:12px; border-radius:10px; margin-bottom:16px; background:#f5f7ff;">
+        <summary style="font-weight:600; cursor:pointer;">iPhoneの文字起こしから自動入力</summary>
+        <p style="margin:8px 0 0; font-size:14px; color:#334;">営業先での会話を貼り付けると、フォームの各項目を候補で埋めます。誤りはプレビューで修正してから「フォームに反映」を押してください。</p>
+        <label for="transcriptionInput" style="margin-top:10px;">文字起こしテキスト</label>
+        <textarea id="transcriptionInput" rows="4" placeholder="例：\n施設名: ○○ホーム\n担当: さくら さん\n電話: 028-xxx-yyyy\nメール: sakura@...\n訪問で確認、次に資料送付..." style="width:100%; padding:8px; border-radius:8px; border:1px solid #cfd8e6; background:#fff;"></textarea>
+        <div class="action-row" style="margin-top:10px;">
+          <button type="button" onclick="parseTranscriptionInput()">解析してプレビュー</button>
+          <button type="button" id="applyTranscriptionBtn" onclick="applyTranscriptionResult()" disabled>フォームに反映</button>
+        </div>
+        <div id="transcriptionPreview" style="margin-top:12px; font-size:14px; color:#223; display:flex; flex-direction:column; gap:6px;"></div>
+      </details>
       <label for="reportFacility">施設</label>
       <div style="border:1px solid #eee; padding:10px; border-radius:6px; margin-bottom:8px;">
         <div class="grid3">
@@ -816,10 +1209,12 @@
       <select id="contactSelect" disabled>
         <option value="">-- 施設を先に選択 --</option>
       </select>
-      <div style="margin:6px 0 8px;">
-        <label style="display:flex; align-items:center; gap:8px; margin:0;">
-          <input type="checkbox" id="unknownContactChk">担当者不明（名前を『不明』として保存）
-        </label>
+      <div class="unknown-contact-group">
+        <button type="button" id="unknownContactBtn" class="unknown-contact-btn" onclick="toggleUnknownContact();" aria-pressed="false">
+          担当者不明（名前を『不明』として保存）
+        </button>
+        <div class="muted" style="font-size:11px;">連絡先や担当者が未確定のときはここをタップし、フォーム入力を簡単にします。</div>
+        <input type="checkbox" id="unknownContactChk" class="sr-only" aria-hidden="true">
       </div>
       <div id="contactInfoBox" style="margin:4px 0 12px; font-size:13px; color:#555;"></div>
       <div id="newContactPanel" style="display:none; border:1px solid #eee; padding:10px; border-radius:6px; margin-bottom:8px;">
