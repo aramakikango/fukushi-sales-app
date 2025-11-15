@@ -224,6 +224,44 @@ function sanitize(str) {
     return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[ch]);
   });
 }
+function getGptModel() {
+  return getConfigValue('GPT_MODEL') || 'gpt-5-nano';
+}
+function getGptApiEndpoint() {
+  return getConfigValue('GPT_API_ENDPOINT') || 'https://api.openai.com/v1/chat/completions';
+}
+function callGpt(messages, options) {
+  const apiKey = getConfigValue('GPT_API_KEY');
+  if (!apiKey) throw new Error('GPT_API_KEY が設定されていません');
+  const msgs = Array.isArray(messages) ? messages : [{ role: 'user', content: String(messages || '') }];
+  const payload = {
+    model: (options && options.model) || getGptModel(),
+    messages: msgs,
+    temperature: options && options.temperature != null ? Number(options.temperature) : 0.4,
+    max_tokens: options && options.maxTokens != null ? Number(options.maxTokens) : 512
+  };
+  if (options && options.function_call) payload.function_call = options.function_call;
+  const endpoint = (options && options.endpoint) || getGptApiEndpoint();
+  const res = UrlFetchApp.fetch(endpoint, {
+    method: 'post',
+    contentType: 'application/json',
+    headers: { Authorization: 'Bearer ' + apiKey },
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  });
+  const code = res.getResponseCode();
+  const text = res.getContentText();
+  if (code < 200 || code >= 300) {
+    Logger.log('[callGpt] HTTP %s %s', code, text);
+    throw new Error('GPT呼び出しに失敗しました（ステータス: ' + code + '）');
+  }
+  const parsed = JSON.parse(text);
+  if (parsed.error) {
+    Logger.log('[callGpt] API error %s', text);
+    throw new Error('GPT API エラー: ' + (parsed.error.message || parsed.error));
+  }
+  return parsed;
+}
 
 function addRecord(data) {
   return addFacility(data);

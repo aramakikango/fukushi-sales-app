@@ -2,6 +2,8 @@ const DEFAULT_CONFIG = {
   SPREADSHEET_ID: "1bTRSe5l7RTMk1taHNtYaAUMcFBEIwGUf6Yz0icPtp2M",
   LINE_WORKS_WEBHOOK_URL: "https://webhook.worksmobile.com/message/02c456e3-6055-494b-8fe1-026271215198",
   GPT_API_KEY: "",
+  GPT_MODEL: "gpt-5-nano",
+  GPT_API_ENDPOINT: "https://api.openai.com/v1/chat/completions",
 };
 
 function sanitizeSpreadsheetId(value) {
