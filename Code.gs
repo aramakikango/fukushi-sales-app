@@ -961,6 +961,36 @@ function getFacilityPlacementFunnel(facilityId) {
   return { facilityId: facilityId, funnel: counts };
 }
 
+function getConversionSummary(params) {
+  params = params || {};
+  const facilityId = params.facilityId || '';
+  const startDate = params.startDate ? new Date(params.startDate) : null;
+  const endDate = params.endDate ? new Date(params.endDate) : null;
+  const visits = getVisits(params.facilityId ? { facilityId: facilityId } : {});
+  let total = 0;
+  let deals = 0;
+  let rejects = 0;
+  let other = 0;
+  visits.forEach(function(v){
+    const visitDate = v.visitDate ? new Date(v.visitDate) : null;
+    if (startDate && visitDate && visitDate < startDate) return;
+    if (endDate && visitDate && visitDate > endDate) return;
+    total++;
+    const outcome = (v.outcome || '').toString();
+    const isDeal = outcome.indexOf('成') !== -1;
+    const isRejected = outcome.indexOf('断') !== -1 || outcome.indexOf('拒') !== -1 || outcome === 'お断り';
+    if (isDeal) {
+      deals++;
+    } else if (isRejected) {
+      rejects++;
+    } else {
+      other++;
+    }
+  });
+  const rate = total ? Number(((deals / total) * 100).toFixed(1)) : 0;
+  return { facilityId: facilityId, total: total, deals: deals, rejects: rejects, other: other, conversionRate: rate };
+}
+
 // 施設ごとの「どの段階でお断りされたか」の集計
 function getRejectionByStage(facilityId) {
   if (!facilityId) return {};

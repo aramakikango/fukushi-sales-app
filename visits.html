@@ -205,8 +205,9 @@
       }
       function onFacilityChangeInternal(fid){
         if (!fid) {
-          document.getElementById('visitRows').innerHTML = '<tr><td colspan="6">施設を選択してください</td></tr>';
+          document.getElementById('visitRows').innerHTML = '<tr><td colspan="8">施設を選択してください</td></tr>';
           document.getElementById('activityBox').innerHTML = '';
+          const convBox = document.getElementById('conversionBox'); if (convBox) convBox.textContent = '';
           return;
         }
         google.script.run.withSuccessHandler(function(s){
@@ -216,12 +217,13 @@
           const lr = s.lastReportDate ? new Date(s.lastReportDate).toLocaleString() : '-';
           box.innerHTML = '訪問/問い合わせ回数: <b>' + (s.visitCount||0) + '</b>（最終: ' + lv + '） / 報告回数: <b>' + (s.reportCount||0) + '</b>（最終: ' + lr + '）';
         }).getFacilityActivitySummary(fid);
+        loadConversionSummary(fid);
         loadVisits(fid);
       }
       function loadVisits(fid){
         google.script.run.withSuccessHandler(function(list){
           const tbody = document.getElementById('visitRows');
-          if (!list || list.length === 0) { tbody.innerHTML = '<tr><td colspan="6">記録はありません</td></tr>'; return; }
+          if (!list || list.length === 0) { tbody.innerHTML = '<tr><td colspan="8">記録はありません</td></tr>'; return; }
           let html = '';
           list.forEach(function(v){
             const d = v.visitDate ? new Date(v.visitDate).toLocaleString() : '';
@@ -239,6 +241,24 @@
           });
           tbody.innerHTML = html;
         }).getVisits({ facilityId: fid });
+      }
+
+      function renderConversionSummary(summary){
+        const box = document.getElementById('conversionBox');
+        if (!box) return;
+        if (!summary) {
+          box.innerHTML = '訪問データがありません';
+          return;
+        }
+        const rate = summary.conversionRate != null ? String(summary.conversionRate) + '%' : '-';
+        box.innerHTML = '営業: <b>' + summary.total + '</b>件 / 成約: <b>' + summary.deals + '</b>件 / お断り: <b>' + summary.rejects + '</b>件 / その他: <b>' + summary.other + '</b>件 / 転換率: <b>' + rate + '</b>';
+      }
+
+      function loadConversionSummary(fid){
+        const box = document.getElementById('conversionBox');
+        if (box && !fid) { box.textContent = ''; }
+        if (!fid) return;
+        google.script.run.withSuccessHandler(function(summary){ renderConversionSummary(summary); }).getConversionSummary({ facilityId: fid });
       }
       
       // 既存の記録をフォームに読み込んで編集モードにする
@@ -470,6 +490,7 @@
         <select id="visitFacility"></select>
       </div>
       <div id="activityBox" class="muted" style="margin-top:4px;"></div>
+  <div id="conversionBox" class="muted" style="margin-top:4px;"></div>
 
       <div class="row">
         <div>
@@ -653,6 +674,7 @@
           <th>診断/区分/希望</th>
           <th>段階</th>
           <th>備考</th>
+          <th>操作</th>
         </tr>
       </thead>
       <tbody id="visitRows">
