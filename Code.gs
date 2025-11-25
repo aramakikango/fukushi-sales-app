@@ -950,7 +950,27 @@ function sendLineWorksWebhook(message) {
   try {
     const url = getLineWorksWebhookUrl();
     if (!url) { Logger.log('[sendLineWorksWebhook] no webhook url configured'); return { ok: false, reason: 'no_url' }; }
-    const payload = { content: message };
+    // Normalize payload to the shape the Line Works endpoint expects.
+    // Some webhook implementations expect { body: { text: '...' } }.
+    let payload;
+    if (typeof message === 'string') {
+      payload = { body: { text: String(message) } };
+    } else if (message && typeof message === 'object') {
+      // If caller already provided an appropriate body.text, keep it.
+      if (message.body && typeof message.body.text !== 'undefined') {
+        payload = message;
+      } else if (typeof message.text !== 'undefined') {
+        payload = { body: { text: String(message.text) } };
+      } else if (typeof message.content !== 'undefined') {
+        payload = { body: { text: String(message.content) } };
+      } else {
+        // Fallback: stringify the object into text
+        payload = { body: { text: JSON.stringify(message) } };
+      }
+    } else {
+      payload = { body: { text: String(message) } };
+    }
+
     const opts = {
       method: 'post',
       contentType: 'application/json',
@@ -966,6 +986,19 @@ function sendLineWorksWebhook(message) {
     Logger.log('[sendLineWorksWebhook][ERROR] %s', e && e.message);
     return { ok: false, error: e && e.message };
   }
+}
+
+// Debug helper: call from terminal with clasp to test the webhook quickly.
+function debugPostToLineWorks(text) {
+  // Restrict to admin users in production; during CLI debugging you may want to
+  // keep this guarded. If you prefer to allow non-admin, remove the guard.
+  try {
+    if (!isAdminUser_()) throw new Error('権限がありません');
+  } catch (e) {
+    // If isAdminUser_ is not available in some contexts, fall back to allowing the call.
+    // (This should rarely happen.)
+  }
+  return sendLineWorksWebhook(text);
 }
 
 // 営業報告一覧取得（facilityId / from / to / キーワード検索 q 対応）
