@@ -67,6 +67,7 @@
       window.addEventListener('load', initTheme);
     </script>
     <script>
+      let facilityListCache = [];
       function submitFacility() {
         const selected = Array.from(document.querySelectorAll('.ft-checkbox:checked')).map(cb=>cb.value);
         // その他詳細
@@ -104,13 +105,16 @@
 
       function loadFacilities() {
         google.script.run.withSuccessHandler(function(list) {
+          const facilities = Array.isArray(list) ? list : [];
+          facilityListCache = facilities;
+          populateFacilityContactSelect(facilities);
           const tbody = document.getElementById('facilityRows');
-          if (!list || list.length === 0) {
+          if (!facilities.length) {
             tbody.innerHTML = '<tr><td colspan="6">登録された施設はまだありません</td></tr>';
             return;
           }
           let html = '';
-          list.forEach(function(f) {
+          facilities.forEach(function(f) {
             html += '<tr><td>' + escapeHtml(f.name) + '</td>' +
                     '<td>' + escapeHtml(f.prefecture || '') + '</td>' +
                     '<td>' + escapeHtml(f.municipality || '') + '</td>' +
@@ -155,6 +159,93 @@
           if (pref) loadMunicipalities(pref);
           alert('市区町村マスタを更新しました（追加: ' + (res && res.inserted || 0) + '件）');
         }).seedMunicipalitiesMerge();
+      }
+
+      function populateFacilityContactSelect(list) {
+        const select = document.getElementById('contactFacilitySelect');
+        if (!select) return;
+        const prev = select.value;
+        select.innerHTML = '<option value="">-- 施設を選択 --</option>';
+        (list || []).forEach(function(f) {
+          const opt = document.createElement('option');
+          opt.value = f.id;
+          opt.textContent = f.name + (f.municipality ? '（' + f.municipality + '）' : '');
+          select.appendChild(opt);
+        });
+        if (prev && select.querySelector('option[value="' + prev + '"]')) {
+          select.value = prev;
+        } else if (!select.value && list && list.length === 1) {
+          select.value = list[0].id;
+        }
+        loadFacilityContactsForPanel();
+      }
+
+      function loadFacilityContactsForPanel() {
+        const select = document.getElementById('contactFacilitySelect');
+        const facilityId = select ? select.value : '';
+        const status = document.getElementById('contactPanelStatus');
+        const tbody = document.getElementById('facilityContactStatsBody');
+        if (status) {
+          status.textContent = facilityId ? '読み込み中...' : '施設を選択すると担当者一覧が表示されます';
+        }
+        if (!facilityId) {
+          if (tbody) tbody.innerHTML = '<tr><td colspan="5">施設を選択してください</td></tr>';
+          return;
+        }
+        google.script.run.withSuccessHandler(function(list) {
+          if (status) status.textContent = '';
+          renderFacilityContactsPanel(list);
+        }).getFacilityContacts({ facilityId: facilityId });
+      }
+
+      function renderFacilityContactsPanel(list) {
+        const tbody = document.getElementById('facilityContactStatsBody');
+        if (!tbody) return;
+        if (!list || !list.length) {
+          tbody.innerHTML = '<tr><td colspan="5">登録された担当者がいません</td></tr>';
+          return;
+        }
+        let html = '';
+        list.forEach(function(item) {
+          const meta = [];
+          if (item.partnerType) meta.push(item.partnerType);
+          if (item.stage) meta.push(item.stage);
+          if (item.partnerFlag) meta.push('パートナー');
+          if (item.lastActivityDate) meta.push('最終 ' + escapeHtml(item.lastActivityDate));
+          const metaText = meta.length ? meta.join(' / ') : '';
+          const nextActionParts = [];
+          if (item.nextActionDate) nextActionParts.push('期日: ' + escapeHtml(item.nextActionDate));
+          if (item.nextAction) nextActionParts.push(escapeHtml(item.nextAction));
+          html += '<tr>' +
+            '<td><strong>' + escapeHtml(item.contactName || '—') + '</strong>' +
+              (metaText ? '<div class="muted" style="font-size:12px;">' + metaText + '</div>' : '') +
+            '</td>' +
+            '<td>' + escapeHtml(item.contactPhone || '—') + '</td>' +
+            '<td>' + (item.referralCount || 0) + '</td>' +
+            '<td>' + (item.activityCount || 0) + '</td>' +
+            '<td>' + nextActionParts.join('<br>') + '</td>' +
+          '</tr>';
+        });
+        tbody.innerHTML = html;
+      }
+
+      function addFacilityContactFromFacilityPage() {
+        const select = document.getElementById('contactFacilitySelect');
+        const facilityId = select ? select.value : '';
+        const nameInput = document.getElementById('contactNameForFacility');
+        const phoneInput = document.getElementById('contactPhoneForFacility');
+        const notesInput = document.getElementById('contactNotesForFacility');
+        const name = nameInput ? nameInput.value.trim() : '';
+        const phone = phoneInput ? phoneInput.value.trim() : '';
+        const notes = notesInput ? notesInput.value.trim() : '';
+        if (!facilityId) { alert('施設を選択してください'); return; }
+        if (!name) { alert('担当者名を入力してください'); return; }
+        google.script.run.withSuccessHandler(function() {
+          if (nameInput) nameInput.value = '';
+          if (phoneInput) phoneInput.value = '';
+          if (notesInput) notesInput.value = '';
+          loadFacilityContactsForPanel();
+        }).addFacilityContact({ facilityId: facilityId, contactName: name, contactPhone: phone, contactNotes: notes });
       }
 
       window.addEventListener('load', function(){
@@ -286,5 +377,52 @@
         </tbody>
       </table>
     </div>
+    <section style="margin-top:24px; border:1px solid #eee; padding:12px; border-radius:6px;">
+      <h2>施設担当者 / 紹介元データ</h2>
+      <div class="row">
+        <div>
+          <label for="contactFacilitySelect">施設を選択</label>
+          <select id="contactFacilitySelect" onchange="loadFacilityContactsForPanel()">
+            <option value="">-- 施設を選択 --</option>
+          </select>
+        </div>
+        <div>
+          <label>ステータス</label>
+          <div id="contactPanelStatus" class="muted" style="margin-top:4px;">施設を選択すると担当者一覧が表示されます</div>
+        </div>
+      </div>
+      <div class="table-wrap" style="margin-top:12px;">
+        <table>
+          <thead>
+            <tr>
+              <th>担当者</th>
+              <th>電話</th>
+              <th>紹介数</th>
+              <th>接触数</th>
+              <th>次アクション</th>
+            </tr>
+          </thead>
+          <tbody id="facilityContactStatsBody">
+            <tr><td colspan="5">施設を選択してください</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="margin-top:16px;">
+        <h3 style="margin:0 0 8px 0; font-size:16px;">新しい担当者を追加</h3>
+        <div class="row">
+          <div>
+            <label for="contactNameForFacility">氏名（必須）</label>
+            <input type="text" id="contactNameForFacility" placeholder="担当者名">
+          </div>
+          <div>
+            <label for="contactPhoneForFacility">電話</label>
+            <input type="text" id="contactPhoneForFacility" placeholder="電話番号">
+          </div>
+        </div>
+        <label for="contactNotesForFacility">備考・メモ（任意）</label>
+        <textarea id="contactNotesForFacility" rows="2" placeholder="部署や特徴など"></textarea>
+        <button type="button" onclick="addFacilityContactFromFacilityPage()">担当者を追加</button>
+      </div>
+    </section>
   </body>
 </html>

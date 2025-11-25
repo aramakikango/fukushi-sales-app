@@ -1468,6 +1468,25 @@ function addFacilityContact(data) {
   return { id, createdAt };
 }
 
+function getPartnerActivityCounts() {
+  const ss = getSpreadsheet();
+  const sheet = ss.getSheetByName('PartnerActivities');
+  if (!sheet) return {};
+  const rows = sheet.getDataRange().getValues();
+  if (rows.length <= 1) return {};
+  const headers = rows[0];
+  const idx = {};
+  headers.forEach((h, i) => { idx[h] = i; });
+  const counts = {};
+  for (let i = 1; i < rows.length; i++) {
+    const contactId = rows[i][idx.contactId];
+    if (!contactId) continue;
+    const key = String(contactId);
+    counts[key] = (counts[key] || 0) + 1;
+  }
+  return counts;
+}
+
 // 施設担当者一覧取得（facilityId で絞り込み）
 function getFacilityContacts(params) {
   params = params || {};
@@ -1506,6 +1525,11 @@ function getFacilityContacts(params) {
     list.push(item);
     if (limit > 0 && list.length >= limit) break;
   }
+  const activityCounts = getPartnerActivityCounts();
+  list.forEach(function(c){
+    const key = c.id ? String(c.id) : '';
+    c.activityCount = activityCounts[key] || 0;
+  });
   return list;
 }
 
