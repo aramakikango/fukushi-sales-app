@@ -102,6 +102,43 @@
         const btn = getVisitSubmitButton();
         if (btn) btn.disabled = !!disabled;
       }
+      let isSubmittingVisit = false;
+      function normalizeMultiSelectionValue(value){
+        if (!value) return [];
+        return String(value).split(/[、,\/]+/).map(s=>s.trim()).filter(Boolean);
+      }
+      function getMultiSelectValue(id){
+        const select = document.getElementById(id);
+        if (!select) return '';
+        if (!select.multiple) return select.value || '';
+        const values = Array.from(select.selectedOptions).map(o=> String(o.value || o.text || '').trim()).filter(Boolean);
+        return values.join('、');
+      }
+      function setMultiSelectValue(id, raw){
+        const select = document.getElementById(id);
+        if (!select) return;
+        const targets = new Set(normalizeMultiSelectionValue(raw));
+        if (!select.multiple) {
+          select.value = raw || '';
+          return;
+        }
+        Array.from(select.options).forEach(function(opt){
+          opt.selected = targets.has(String(opt.value));
+        });
+      }
+      function beginSubmitAttempt(){
+        isSubmittingVisit = true;
+        setVisitSubmitDisabled(true);
+      }
+      function finishSubmitAttempt(){
+        isSubmittingVisit = false;
+        const fid = CURRENT_FACILITY_ID || (document.getElementById('visitFacility')||{}).value;
+        setVisitSubmitDisabled(!fid);
+      }
+      function handleSubmitFailure(error){
+        alert('保存に失敗しました: ' + (error && error.message ? error.message : '不明なエラー'));
+        finishSubmitAttempt();
+      }
       function getFacilityFilterParams(){
         const params = { limit: 600 };
         const prefSel = document.getElementById('facilityPref');
@@ -281,7 +318,7 @@
           document.getElementById('subjectAge').value = v.subjectAge || '';
           document.getElementById('subjectGender').value = v.subjectGender || '';
           document.getElementById('diagnosis').value = v.diagnosis || '';
-          document.getElementById('disabilityCategory').value = v.disabilityCategory || '';
+          setMultiSelectValue('disabilityCategory', v.disabilityCategory || '');
           document.getElementById('careLevel').value = v.careLevel || '';
           document.getElementById('residenceMunicipality').value = v.residenceMunicipality || '';
           document.getElementById('wantsGroupHome').checked = (v.wantsGroupHome === '1' || v.wantsGroupHome === true || v.wantsGroupHome === 'true');
@@ -337,6 +374,11 @@
       function submitVisit(){
         const facilityId = CURRENT_FACILITY_ID || document.getElementById('visitFacility').value;
         if (!facilityId) { alert('施設を選択してください'); return; }
+        if (isSubmittingVisit) {
+          alert('送信中です。しばらくお待ちください。');
+          return;
+        }
+        beginSubmitAttempt();
         const data = {
           facilityId: facilityId,
           visitDate: document.getElementById('visitDate').value,
@@ -349,7 +391,7 @@
           subjectAge: (document.getElementById('subjectAge')||{}).value || '',
           subjectGender: (document.getElementById('subjectGender')||{}).value || '',
           diagnosis: document.getElementById('diagnosis').value,
-          disabilityCategory: document.getElementById('disabilityCategory').value,
+          disabilityCategory: getMultiSelectValue('disabilityCategory'),
           careLevel: (document.getElementById('careLevel')||{}).value || '',
           residenceMunicipality: (document.getElementById('residenceMunicipality')||{}).value || '',
           wantsGroupHome: document.getElementById('wantsGroupHome').checked,
@@ -377,7 +419,8 @@
             alert('問い合わせ記録を更新しました');
             cancelEdit();
             loadVisits(facilityId);
-          }).updateVisit(data);
+            finishSubmitAttempt();
+          }).withFailureHandler(handleSubmitFailure).updateVisit(data);
         } else {
           google.script.run.withSuccessHandler(function(){
             alert('問い合わせ記録を登録しました');
@@ -385,7 +428,8 @@
             document.getElementById('visitDate').value = nowForDatetimeLocal();
             onInquiryTypeChange();
             loadVisits(facilityId);
-          }).addVisit(data);
+            finishSubmitAttempt();
+          }).withFailureHandler(handleSubmitFailure).addVisit(data);
         }
       }
       window.addEventListener('load', function(){
@@ -573,7 +617,7 @@
           </div>
           <div>
             <label for="disabilityCategory">障害区分</label>
-            <select id="disabilityCategory">
+            <select id="disabilityCategory" multiple size="4" title="Ctrl+クリックまたはShift+クリックで複数選択できます">
               <option value="">-- 選択 --</option>
               <option value="身体障害">身体障害</option>
               <option value="知的障害">知的障害</option>
