@@ -83,6 +83,7 @@
       // Facility handling
       let CURRENT_FACILITY_ID = '';
       function escapeHtml(str){ if(!str) return ''; return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function escapeJs(str){ if (str == null) return ''; return String(str).replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
       function formatDateForDisplay(value) {
         if (!value) return '';
         const date = new Date(value);
@@ -118,13 +119,13 @@
         const params = getFacilityFilterParams();
         google.script.run.withSuccessHandler(function(list){
           const facilities = Array.isArray(list) ? list : [];
-          if (!facilities.length) {
+            if (!facilities.length) {
             if (wrap) wrap.style.display = 'block';
             sel.innerHTML = '<option value="">該当する施設がありません</option>';
             setVisitSubmitDisabled(true);
             CURRENT_FACILITY_ID = '';
             document.getElementById('activityBox').innerHTML = '';
-            document.getElementById('visitRows').innerHTML = '<tr><td colspan="6">施設が選択されていません</td></tr>';
+            document.getElementById('visitRows').innerHTML = '<tr><td colspan="8">施設が選択されていません</td></tr>';
             return;
           }
           if (facilities.length === 1) {
@@ -154,7 +155,7 @@
           CURRENT_FACILITY_ID = '';
           setVisitSubmitDisabled(true);
           document.getElementById('activityBox').innerHTML = '';
-          document.getElementById('visitRows').innerHTML = '<tr><td colspan="6">施設を選択してください</td></tr>';
+          document.getElementById('visitRows').innerHTML = '<tr><td colspan="8">施設を選択してください</td></tr>';
         }).searchFacilities(params);
       }
       function onFacilityPrefChange(){
@@ -233,15 +234,85 @@
             '<td>' + escapeHtml(v.diagnosis || '') + (v.disabilityCategory? (' / ' + escapeHtml(v.disabilityCategory)) : '') + (wishes? (' / ' + wishes) : '') + '</td>' +
             '<td>' + escapeHtml(v.placementStage || '') + (v.placementStageDate ? ('（' + escapeHtml(formatDateForDisplay(v.placementStageDate)) + '）') : '') + '</td>' +
             '<td>' + escapeHtml(v.notes || '') + '</td>' +
+              '<td><button type="button" onclick="editVisit(\'' + escapeJs(v.id) + '\')">編集</button></td>' +
               '</tr>';
           });
           tbody.innerHTML = html;
         }).getVisits({ facilityId: fid });
       }
+      
+      // 既存の記録をフォームに読み込んで編集モードにする
+      function editVisit(id){
+        if (!id) return alert('無効なID');
+        google.script.run.withSuccessHandler(function(v){
+          if (!v) { alert('レコードが見つかりません'); return; }
+          // set facility selector
+          const sel = document.getElementById('visitFacility');
+          if (sel) { sel.value = v.facilityId || ''; CURRENT_FACILITY_ID = v.facilityId || ''; }
+          // populate fields
+          document.getElementById('visitId').value = v.id || '';
+          document.getElementById('visitDate').value = v.visitDate || '';
+          document.getElementById('inquiryType').value = v.inquiryType || '';
+          document.getElementById('visitorName').value = v.visitorName || '';
+          document.getElementById('visitorRelation').value = v.visitorRelation || '';
+          document.getElementById('callerPhone').value = v.callerPhone || '';
+          document.getElementById('callerEmail').value = v.callerEmail || '';
+          document.getElementById('subjectName').value = v.subjectName || '';
+          document.getElementById('subjectAge').value = v.subjectAge || '';
+          document.getElementById('subjectGender').value = v.subjectGender || '';
+          document.getElementById('diagnosis').value = v.diagnosis || '';
+          document.getElementById('disabilityCategory').value = v.disabilityCategory || '';
+          document.getElementById('careLevel').value = v.careLevel || '';
+          document.getElementById('residenceMunicipality').value = v.residenceMunicipality || '';
+          document.getElementById('wantsGroupHome').checked = (v.wantsGroupHome === '1' || v.wantsGroupHome === true || v.wantsGroupHome === 'true');
+          document.getElementById('wantsHomeNursing').checked = (v.wantsHomeNursing === '1' || v.wantsHomeNursing === true || v.wantsHomeNursing === 'true');
+          document.getElementById('desiredStartDate').value = v.desiredStartDate || '';
+          document.getElementById('visitPurpose').value = v.visitPurpose || '';
+          document.getElementById('urgency').value = v.urgency || '';
+          document.getElementById('preferredContactMethod').value = v.preferredContactMethod || '';
+          document.getElementById('preferredContactTime').value = v.preferredContactTime || '';
+          document.getElementById('referralSource').value = v.referralSource || '';
+          document.getElementById('consentFlag').checked = (v.consentFlag === true || v.consentFlag === '1' || v.consentFlag === 'true');
+          document.getElementById('notes').value = v.notes || '';
+          document.getElementById('placementStage').value = v.placementStage || '';
+          document.getElementById('placementStageDate').value = v.placementStageDate || '';
+          // outcome/rejection
+          document.getElementById('outcome').value = v.outcome || '';
+          document.getElementById('rejectionStage').value = v.rejectionStage || '';
+          document.getElementById('rejectionDate').value = v.rejectionDate || '';
+          document.getElementById('rejectionReason').value = v.rejectionReason || '';
+          onOutcomeChange();
+          // UI: switch submit button to update mode
+          const btn = document.getElementById('visitSubmitBtn'); if (btn) btn.textContent = '更新';
+          const cancel = document.getElementById('cancelEditBtn'); if (cancel) cancel.style.display = 'inline-block';
+          setVisitSubmitDisabled(false);
+        }).getVisit(id);
+      }
+
+      function cancelEdit(){
+        document.getElementById('visitForm').reset();
+        document.getElementById('visitId').value = '';
+        document.getElementById('visitDate').value = nowForDatetimeLocal();
+        const btn = document.getElementById('visitSubmitBtn'); if (btn) btn.textContent = '記録を登録';
+        const cancel = document.getElementById('cancelEditBtn'); if (cancel) cancel.style.display = 'none';
+        onInquiryTypeChange();
+        setVisitSubmitDisabled(true);
+      }
       function onInquiryTypeChange(){
         // 電話でも詳細を記入できるよう常時表示
         const blk = document.getElementById('visitorFields');
         if (blk) blk.style.display = 'block';
+      }
+
+      function onOutcomeChange(){
+        const val = (document.getElementById('outcome')||{}).value || '';
+        const block = document.getElementById('rejectionBlock');
+        if (!block) return;
+        if (val === 'お断り' || val.indexOf('断') !== -1 || val.indexOf('拒') !== -1) {
+          block.style.display = 'block';
+        } else {
+          block.style.display = 'none';
+        }
       }
       function submitVisit(){
         const facilityId = CURRENT_FACILITY_ID || document.getElementById('visitFacility').value;
@@ -272,14 +343,30 @@
           consentFlag: (document.getElementById('consentFlag')||{}).checked || false,
           notes: document.getElementById('notes').value
         };
+        // outcome / rejection info
+        data.outcome = (document.getElementById('outcome')||{}).value || '';
+        data.rejectionStage = (document.getElementById('rejectionStage')||{}).value || '';
+        data.rejectionDate = (document.getElementById('rejectionDate')||{}).value || '';
+        data.rejectionReason = (document.getElementById('rejectionReason')||{}).value || '';
+        const visitIdField = document.getElementById('visitId');
+        const isEdit = visitIdField && visitIdField.value;
+        if (isEdit) data.id = visitIdField.value;
         if (!data.inquiryType) { alert('問い合わせ種別を選択してください'); return; }
-        google.script.run.withSuccessHandler(function(){
-          alert('問い合わせ記録を登録しました');
-          document.getElementById('visitForm').reset();
-          document.getElementById('visitDate').value = nowForDatetimeLocal();
-          onInquiryTypeChange();
-          loadVisits(facilityId);
-        }).addVisit(data);
+        if (isEdit) {
+          google.script.run.withSuccessHandler(function(){
+            alert('問い合わせ記録を更新しました');
+            cancelEdit();
+            loadVisits(facilityId);
+          }).updateVisit(data);
+        } else {
+          google.script.run.withSuccessHandler(function(){
+            alert('問い合わせ記録を登録しました');
+            document.getElementById('visitForm').reset();
+            document.getElementById('visitDate').value = nowForDatetimeLocal();
+            onInquiryTypeChange();
+            loadVisits(facilityId);
+          }).addVisit(data);
+        }
       }
       window.addEventListener('load', function(){
         initTheme();
@@ -287,6 +374,7 @@
         const sel = document.getElementById('visitFacility');
         if (sel) sel.addEventListener('change', onFacilityChange);
         document.getElementById('inquiryType').addEventListener('change', onInquiryTypeChange);
+        const outSel = document.getElementById('outcome'); if (outSel) outSel.addEventListener('change', onOutcomeChange);
         document.getElementById('visitDate').value = nowForDatetimeLocal();
         onInquiryTypeChange();
         setVisitSubmitDisabled(true);
@@ -304,6 +392,7 @@
 
     <h1>問い合わせ記録</h1>
     <form id="visitForm" onsubmit="event.preventDefault(); submitVisit();">
+      <input type="hidden" id="visitId" value="">
       <div style="border:1px solid #eee; border-radius:6px; padding:12px; margin-top:8px;">
         <div class="row" style="margin-top:0;">
           <div>
@@ -343,6 +432,33 @@
           <div>
             <label for="placementStageDate">該当日</label>
             <input id="placementStageDate" type="date">
+          </div>
+        </div>
+        <div class="row" style="margin-top:10px;">
+          <div>
+            <label for="outcome">結果</label>
+            <select id="outcome">
+              <option value="">-- 選択 --</option>
+              <option value="成約">成約</option>
+              <option value="お断り">お断り</option>
+              <option value="放置/未対応">放置/未対応</option>
+            </select>
+          </div>
+          <div id="rejectionBlock" style="display:none;">
+            <label for="rejectionStage">お断り段階</label>
+            <select id="rejectionStage">
+              <option value="">未設定</option>
+              <option value="問い合わせ">問い合わせ</option>
+              <option value="見学希望">見学希望</option>
+              <option value="見学実施">見学実施</option>
+              <option value="体験利用">体験利用</option>
+              <option value="入居申込">入居申込</option>
+              <option value="入居">入居</option>
+            </select>
+            <label for="rejectionDate" style="margin-top:8px;">お断り日</label>
+            <input id="rejectionDate" type="date">
+            <label for="rejectionReason" style="margin-top:8px;">理由（任意）</label>
+            <input id="rejectionReason" type="text" placeholder="例: 予算が合わない、他施設に決めた 等">
           </div>
         </div>
         <div style="margin-top:8px;">
@@ -522,6 +638,7 @@
       <textarea id="notes" rows="3" placeholder="自由記入"></textarea>
 
   <button type="submit" id="visitSubmitBtn">記録を登録</button>
+  <button type="button" id="cancelEditBtn" style="display:none; margin-left:8px;" onclick="cancelEdit()">編集をキャンセル</button>
     </form>
 
     <h2>施設別の問い合わせ一覧</h2>
@@ -539,7 +656,7 @@
         </tr>
       </thead>
       <tbody id="visitRows">
-        <tr><td colspan="6">施設を選択してください</td></tr>
+        <tr><td colspan="8">施設を選択してください</td></tr>
       </tbody>
     </table>
     </div>

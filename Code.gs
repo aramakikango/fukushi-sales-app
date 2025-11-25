@@ -366,6 +366,34 @@ function setupSheets() {
     // contact を phone の後、notes の前に確実に挿入
     ensureCol('contact', 'phone');
   }
+  // Visits シートに分析/状態用のカラムがあるか確認、無ければ追加
+  const visitSheet = ss.getSheetByName('Visits');
+  if (visitSheet) {
+    let vheaders = visitSheet.getRange(1,1,1,visitSheet.getLastColumn()).getValues()[0];
+    const ensureVCol = (colName, afterName) => {
+      if (vheaders.indexOf(colName) === -1) {
+        const afterIdx = vheaders.indexOf(afterName);
+        if (afterIdx !== -1) {
+          visitSheet.insertColumnAfter(afterIdx + 1);
+          visitSheet.getRange(1, afterIdx + 2).setValue(colName);
+        } else {
+          visitSheet.insertColumnAfter(visitSheet.getLastColumn());
+          visitSheet.getRange(1, visitSheet.getLastColumn()).setValue(colName);
+        }
+        vheaders = visitSheet.getRange(1,1,1,visitSheet.getLastColumn()).getValues()[0];
+      }
+    };
+    // 入居プロセス関連（既にあるかもしれない）
+    ensureVCol('placementStage','visitDate');
+    ensureVCol('placementStageDate','placementStage');
+    // 結果/お断り関連
+    ensureVCol('outcome','placementStageDate');
+    ensureVCol('rejectionStage','outcome');
+    ensureVCol('rejectionDate','rejectionStage');
+    ensureVCol('rejectionReason','rejectionDate');
+    // 同意フラグ（念のため）
+    ensureVCol('consentFlag','notes');
+  }
   // 施設の旧 contact 列から FacilityContacts へ自動移行（必要な場合のみ）
   try { migrateFacilityContactsFromFacilities(); } catch (e) { Logger.log('[migrate][WARN] %s', e && e.message); }
 }
@@ -742,6 +770,11 @@ function addVisit(data) {
   set('referralSource', data.referralSource || '');
   set('placementStage', data.placementStage || '');
   set('placementStageDate', data.placementStageDate || '');
+  // outcome / rejection info
+  set('outcome', data.outcome || '');
+  set('rejectionStage', data.rejectionStage || '');
+  set('rejectionDate', data.rejectionDate || '');
+  set('rejectionReason', data.rejectionReason || '');
   set('consentFlag', data.consentFlag ? '1' : '');
   set('notes', data.notes || '');
   set('createdAt', createdAt);
@@ -827,6 +860,50 @@ function updateVisitPlacementStage(data) {
   throw new Error('指定IDの問い合わせが見つかりません');
 }
 
+// 単一の訪問レコードを取得
+function getVisit(visitId) {
+  if (!visitId) return null;
+  const visits = getVisits({});
+  for (let i=0;i<visits.length;i++) {
+    if (String(visits[i].id) === String(visitId)) return visits[i];
+  }
+  return null;
+}
+
+// 訪問レコードを更新（data.id 必須）
+function updateVisit(data) {
+  if (!data || !data.id) throw new Error('id は必須です');
+  const ss = getSpreadsheet();
+  const sheet = ss.getSheetByName('Visits');
+  if (!sheet) throw new Error('Visits シートが見つかりません');
+  const rows = sheet.getDataRange().getValues();
+  if (rows.length <= 1) throw new Error('更新対象がありません');
+  const headers = rows[0];
+  const idx = {}; headers.forEach((h,i)=> idx[h]=i);
+  let targetRow = -1;
+  const idIdx = idx.id != null ? idx.id : 0;
+  for (let i=1;i<rows.length;i++) {
+    if (String(rows[i][idIdx]) === String(data.id)) { targetRow = i; break; }
+  }
+  if (targetRow === -1) throw new Error('指定IDの問い合わせが見つかりません');
+  // 更新可能な列一覧
+  const setters = ['facilityId','visitDate','inquiryType','visitorName','visitorRelation','callerPhone','callerEmail','subjectName','subjectAge','subjectGender','diagnosis','disabilityCategory','careLevel','residenceMunicipality','wantsGroupHome','wantsHomeNursing','desiredStartDate','visitPurpose','urgency','preferredContactMethod','preferredContactTime','referralSource','placementStage','placementStageDate','consentFlag','notes'];
+  // include outcome/rejection fields
+  const extra = ['outcome','rejectionStage','rejectionDate','rejectionReason'];
+  extra.forEach(function(k){ if (setters.indexOf(k) === -1) setters.push(k); });
+  setters.forEach(function(key){
+    if (data[key] != null && idx[key] != null) {
+      let val = data[key];
+      // boolean を '1' / '' に変換
+      if ((key === 'wantsGroupHome' || key === 'wantsHomeNursing' || key === 'consentFlag')) {
+        val = data[key] ? '1' : '';
+      }
+      sheet.getRange(targetRow+1, idx[key]+1).setValue(val);
+    }
+  });
+  return { id: data.id };
+}
+
 // 施設の活動サマリー（訪問回数/最終訪問日、報告回数/最終報告日）
 function getFacilityActivitySummary(facilityId) {
   if (!facilityId) return { visitCount: 0, lastVisitDate: '', reportCount: 0, lastReportDate: '' };
@@ -882,6 +959,35 @@ function getFacilityPlacementFunnel(facilityId) {
     if (counts[st] != null) counts[st]++;
   });
   return { facilityId: facilityId, funnel: counts };
+}
+
+// 施設ごとの「どの段階でお断りされたか」の集計
+function getRejectionByStage(facilityId) {
+  if (!facilityId) return {};
+  const stages = ['問い合わせ','見学希望','見学実施','体験利用','入居申込','入居','未設定'];
+  const counts = {};
+  stages.forEach(s => counts[s] = 0);
+  const ss = getSpreadsheet();
+  const vs = ss.getSheetByName('Visits');
+  if (!vs) return counts;
+  const rows = vs.getDataRange().getValues();
+  if (rows.length <= 1) return counts;
+  const headers = rows[0];
+  const idx = {}; headers.forEach((h,i)=> idx[h]=i);
+  for (let i=1;i<rows.length;i++) {
+    const r = rows[i];
+    const fid = idx.facilityId!=null ? r[idx.facilityId] : r[1];
+    if (String(fid) !== String(facilityId)) continue;
+    const outcome = idx.outcome!=null ? String(r[idx.outcome]||'') : '';
+    // 判定: 'お断り' または '断' / '拒' の含有をお断りとする
+    const isRejected = outcome && (outcome.indexOf('断') !== -1 || outcome.indexOf('拒') !== -1 || outcome === 'お断り');
+    if (!isRejected) continue;
+    const rejStage = idx.rejectionStage!=null ? (r[idx.rejectionStage] || '') : '';
+    const key = rejStage || (idx.placementStage!=null ? (r[idx.placementStage] || '未設定') : '未設定');
+    if (!counts[key]) counts[key] = 0;
+    counts[key]++;
+  }
+  return { facilityId: facilityId, rejections: counts };
 }
 
 function getFacilityMap() {
