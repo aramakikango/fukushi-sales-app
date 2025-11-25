@@ -676,7 +676,7 @@ function addVisit(data) {
   }
   // ヘッダ拡張（旧visitType互換、staffName削除／inquiryType採用）
   let headers = sheet.getRange(1,1,1,sheet.getLastColumn()).getValues()[0];
-  const needed = ['id','facilityId','visitDate','inquiryType','visitorName','visitorRelation','callerPhone','callerEmail','subjectName','subjectAge','subjectGender','diagnosis','disabilityCategory','careLevel','residenceMunicipality','wantsGroupHome','wantsHomeNursing','desiredStartDate','visitPurpose','urgency','preferredContactMethod','preferredContactTime','referralSource','consentFlag','notes','createdAt','createdBy'];
+  const needed = ['id','facilityId','visitDate','inquiryType','visitorName','visitorRelation','callerPhone','callerEmail','subjectName','subjectAge','subjectGender','diagnosis','disabilityCategory','careLevel','residenceMunicipality','wantsGroupHome','wantsHomeNursing','desiredStartDate','visitPurpose','urgency','preferredContactMethod','preferredContactTime','referralSource','consentFlag','notes','createdAt','createdBy','placementStage','placementStageDate'];
   // 新しいカラム: 利用者の入居プロセス段階（placementStage）とその日付（placementStageDate）を追加
   if (headers.indexOf('placementStage') === -1) {
     sheet.insertColumnAfter(sheet.getLastColumn());
@@ -804,6 +804,27 @@ function getVisits(params) {
   }
   list.sort((a,b)=> (b.visitDate||'').localeCompare(a.visitDate||''));
   return list;
+}
+
+function updateVisitPlacementStage(data) {
+  if (!data || !data.visitId) throw new Error('visitId は必須です');
+  const sheet = getSpreadsheet().getSheetByName('Visits');
+  if (!sheet) throw new Error('Visits シートがありません');
+  const rows = sheet.getDataRange().getValues();
+  if (rows.length <= 1) throw new Error('更新対象がありません');
+  const headers = rows[0];
+  const idx = {}; headers.forEach((h,i)=> idx[h]=i);
+  const idIdx = idx.id != null ? idx.id : 0;
+  const stageIdx = idx.placementStage;
+  const dateIdx = idx.placementStageDate;
+  for (let i=1;i<rows.length;i++) {
+    if (String(rows[i][idIdx]) === String(data.visitId)) {
+      if (stageIdx != null) sheet.getRange(i+1, stageIdx+1).setValue(data.placementStage || '');
+      if (dateIdx != null) sheet.getRange(i+1, dateIdx+1).setValue(data.placementStageDate || '');
+      return { visitId: data.visitId, placementStage: data.placementStage || '', placementStageDate: data.placementStageDate || '' };
+    }
+  }
+  throw new Error('指定IDの問い合わせが見つかりません');
 }
 
 // 施設の活動サマリー（訪問回数/最終訪問日、報告回数/最終報告日）
