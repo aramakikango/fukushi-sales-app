@@ -83,6 +83,12 @@
       // Facility handling
       let CURRENT_FACILITY_ID = '';
       function escapeHtml(str){ if(!str) return ''; return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+      function formatDateForDisplay(value) {
+        if (!value) return '';
+        const date = new Date(value);
+        if (isNaN(date.getTime())) return escapeHtml(value);
+        return date.toLocaleDateString();
+      }
       function nowForDatetimeLocal(){
         const d = new Date();
         const p = n=> String(n).padStart(2,'0');
@@ -224,8 +230,9 @@
               '<td>' + escapeHtml(v.inquiryType || '') + '</td>' +
               '<td>' + escapeHtml(v.visitorName || '') + (v.visitorRelation? ('（' + escapeHtml(v.visitorRelation) + '）') : '') + (v.subjectName ? (' / 対象:' + escapeHtml(v.subjectName)) : '') + '</td>' +
               '<td>' + escapeHtml(v.visitPurpose || '') + '</td>' +
-              '<td>' + escapeHtml(v.diagnosis || '') + (v.disabilityCategory? (' / ' + escapeHtml(v.disabilityCategory)) : '') + (wishes? (' / ' + wishes) : '') + '</td>' +
-              '<td>' + escapeHtml(v.notes || '') + '</td>' +
+            '<td>' + escapeHtml(v.diagnosis || '') + (v.disabilityCategory? (' / ' + escapeHtml(v.disabilityCategory)) : '') + (wishes? (' / ' + wishes) : '') + '</td>' +
+            '<td>' + escapeHtml(v.placementStage || '') + (v.placementStageDate ? ('（' + escapeHtml(formatDateForDisplay(v.placementStageDate)) + '）') : '') + '</td>' +
+            '<td>' + escapeHtml(v.notes || '') + '</td>' +
               '</tr>';
           });
           tbody.innerHTML = html;
@@ -306,6 +313,24 @@
               <option>東京都</option>
               <option>神奈川県</option>
               <option>千葉県</option>
+          <div class="row" style="margin-top:10px;">
+            <div>
+              <label for="placementStage">利用状況（入居プロセス）</label>
+              <select id="placementStage">
+                <option value="">未設定</option>
+                <option value="問い合わせ">問い合わせ</option>
+                <option value="見学希望">見学希望</option>
+                <option value="見学実施">見学実施</option>
+                <option value="体験利用">体験利用</option>
+                <option value="入居申込">入居申込</option>
+                <option value="入居">入居</option>
+              </select>
+            </div>
+            <div>
+              <label for="placementStageDate">該当日</label>
+              <input id="placementStageDate" type="date">
+            </div>
+          </div>
               <option>埼玉県</option>
               <option>茨城県</option>
               <option selected>栃木県</option>
@@ -509,6 +534,7 @@
           <th>相談者/対象者</th>
           <th>要件</th>
           <th>診断/区分/希望</th>
+          <th>段階</th>
           <th>備考</th>
         </tr>
       </thead>

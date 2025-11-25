@@ -677,6 +677,17 @@ function addVisit(data) {
   // ヘッダ拡張（旧visitType互換、staffName削除／inquiryType採用）
   let headers = sheet.getRange(1,1,1,sheet.getLastColumn()).getValues()[0];
   const needed = ['id','facilityId','visitDate','inquiryType','visitorName','visitorRelation','callerPhone','callerEmail','subjectName','subjectAge','subjectGender','diagnosis','disabilityCategory','careLevel','residenceMunicipality','wantsGroupHome','wantsHomeNursing','desiredStartDate','visitPurpose','urgency','preferredContactMethod','preferredContactTime','referralSource','consentFlag','notes','createdAt','createdBy'];
+  // 新しいカラム: 利用者の入居プロセス段階（placementStage）とその日付（placementStageDate）を追加
+  if (headers.indexOf('placementStage') === -1) {
+    sheet.insertColumnAfter(sheet.getLastColumn());
+    sheet.getRange(1, sheet.getLastColumn()).setValue('placementStage');
+    headers = sheet.getRange(1,1,1,sheet.getLastColumn()).getValues()[0];
+  }
+  if (headers.indexOf('placementStageDate') === -1) {
+    sheet.insertColumnAfter(sheet.getLastColumn());
+    sheet.getRange(1, sheet.getLastColumn()).setValue('placementStageDate');
+    headers = sheet.getRange(1,1,1,sheet.getLastColumn()).getValues()[0];
+  }
   needed.forEach(function(h){
     if (headers.indexOf(h) === -1) {
       sheet.insertColumnAfter(sheet.getLastColumn());
@@ -729,6 +740,8 @@ function addVisit(data) {
   set('preferredContactMethod', data.preferredContactMethod || '');
   set('preferredContactTime', data.preferredContactTime || '');
   set('referralSource', data.referralSource || '');
+  set('placementStage', data.placementStage || '');
+  set('placementStageDate', data.placementStageDate || '');
   set('consentFlag', data.consentFlag ? '1' : '');
   set('notes', data.notes || '');
   set('createdAt', createdAt);
@@ -773,6 +786,8 @@ function getVisits(params) {
       preferredContactMethod: idx.preferredContactMethod!=null ? r[idx.preferredContactMethod] : '',
       preferredContactTime: idx.preferredContactTime!=null ? r[idx.preferredContactTime] : '',
       referralSource: idx.referralSource!=null ? r[idx.referralSource] : '',
+  placementStage: idx.placementStage!=null ? r[idx.placementStage] : '',
+  placementStageDate: idx.placementStageDate!=null ? r[idx.placementStageDate] : '',
       consentFlag: idx.consentFlag!=null ? r[idx.consentFlag] === '1' : false,
       notes: idx.notes!=null ? r[idx.notes] : '',
       createdAt: idx.createdAt!=null ? r[idx.createdAt] : '',
@@ -832,6 +847,20 @@ function getFacilityActivitySummary(facilityId) {
     }
   }
   return { visitCount, lastVisitDate, reportCount, lastReportDate };
+}
+
+// 施設別の入居プロセスファネル集計（問い合わせ→見学→体験→申込→入居）
+function getFacilityPlacementFunnel(facilityId) {
+  if (!facilityId) return {};
+  const stages = ['問い合わせ','見学希望','見学実施','体験利用','入居申込','入居'];
+  const counts = {};
+  stages.forEach(s => counts[s] = 0);
+  const visits = getVisits({ facilityId: facilityId });
+  visits.forEach(v => {
+    const st = v.placementStage || '';
+    if (counts[st] != null) counts[st]++;
+  });
+  return { facilityId: facilityId, funnel: counts };
 }
 
 function getFacilityMap() {
