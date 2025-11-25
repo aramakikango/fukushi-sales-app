@@ -88,42 +88,112 @@
         const p = n=> String(n).padStart(2,'0');
         return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
       }
+      function getVisitSubmitButton(){
+        return document.getElementById('visitSubmitBtn') || (document.getElementById('visitForm') ? document.getElementById('visitForm').querySelector('button[type="submit"]') : null);
+      }
+      function setVisitSubmitDisabled(disabled){
+        const btn = getVisitSubmitButton();
+        if (btn) btn.disabled = !!disabled;
+      }
+      function getFacilityFilterParams(){
+        const params = { limit: 600 };
+        const prefSel = document.getElementById('facilityPref');
+        const munSel = document.getElementById('facilityMun');
+        if (prefSel && prefSel.value) params.prefecture = prefSel.value;
+        if (munSel && munSel.value) params.municipality = munSel.value;
+        return params;
+      }
       function loadFacilities(){
         const wrap = document.getElementById('facilityWrap');
         const sel = document.getElementById('visitFacility');
-        sel.innerHTML = '<option value="">-- 施設を選択 --</option>';
+        if (!sel) return;
+        sel.innerHTML = '<option value="">読み込み中...</option>';
+        sel.disabled = true;
+        const params = getFacilityFilterParams();
         google.script.run.withSuccessHandler(function(list){
-          if (!list || list.length === 0) {
-            wrap.style.display = 'block';
-            sel.innerHTML = '<option value="">先に施設登録が必要です</option>';
-            sel.disabled = true;
+          const facilities = Array.isArray(list) ? list : [];
+          if (!facilities.length) {
+            if (wrap) wrap.style.display = 'block';
+            sel.innerHTML = '<option value="">該当する施設がありません</option>';
+            setVisitSubmitDisabled(true);
             CURRENT_FACILITY_ID = '';
-            document.getElementById('visitForm').querySelector('button[type="submit"]').disabled = true;
-            document.getElementById('visitRows').innerHTML = '<tr><td colspan="6">施設が未登録です</td></tr>';
-            document.getElementById('activityBox').textContent = '';
+            document.getElementById('activityBox').innerHTML = '';
+            document.getElementById('visitRows').innerHTML = '<tr><td colspan="6">施設が選択されていません</td></tr>';
             return;
           }
-          if (list.length === 1) {
-            // 自施設: 選択不要
-            CURRENT_FACILITY_ID = list[0].id;
-            wrap.style.display = 'none';
-            document.getElementById('visitForm').querySelector('button[type="submit"]').disabled = false;
+          if (facilities.length === 1) {
+            if (wrap) wrap.style.display = 'none';
+            CURRENT_FACILITY_ID = facilities[0].id;
+            setVisitSubmitDisabled(false);
             onFacilityChangeInternal(CURRENT_FACILITY_ID);
             return;
           }
-          // 複数ある場合のみ選択表示
-          wrap.style.display = 'block';
+          if (wrap) wrap.style.display = 'block';
           sel.disabled = false;
-          list.forEach(function(f){
+          sel.innerHTML = '<option value="">-- 施設を選択 --</option>';
+          facilities.forEach(function(f){
             const o = document.createElement('option');
-            o.value = f.id; o.textContent = f.name + (f.address ? ' — ' + f.address : '');
+            o.value = f.id;
+            o.textContent = f.name + (f.municipality ? '（' + f.municipality + '）' : '');
             sel.appendChild(o);
           });
-        }).getFacilities();
+          if (CURRENT_FACILITY_ID) {
+            sel.value = CURRENT_FACILITY_ID;
+            if (sel.value === CURRENT_FACILITY_ID) {
+              setVisitSubmitDisabled(false);
+              onFacilityChangeInternal(CURRENT_FACILITY_ID);
+              return;
+            }
+          }
+          CURRENT_FACILITY_ID = '';
+          setVisitSubmitDisabled(true);
+          document.getElementById('activityBox').innerHTML = '';
+          document.getElementById('visitRows').innerHTML = '<tr><td colspan="6">施設を選択してください</td></tr>';
+        }).searchFacilities(params);
+      }
+      function onFacilityPrefChange(){
+        CURRENT_FACILITY_ID = '';
+        const prefSel = document.getElementById('facilityPref');
+        const munSel = document.getElementById('facilityMun');
+        if (!munSel) { loadFacilities(); return; }
+        munSel.innerHTML = '<option value="">市区町村（全て）</option>';
+        munSel.disabled = true;
+        const pref = prefSel ? prefSel.value : '';
+        if (!pref) {
+          munSel.disabled = false;
+          loadFacilities();
+          return;
+        }
+        google.script.run.withSuccessHandler(function(list){
+          munSel.disabled = false;
+          munSel.innerHTML = '<option value="">市区町村（全て）</option>';
+          (list || []).forEach(function(item){
+            const opt = document.createElement('option');
+            opt.value = item.municipality;
+            opt.textContent = item.municipality;
+            munSel.appendChild(opt);
+          });
+          loadFacilities();
+        }).getMunicipalities({ prefecture: pref });
+      }
+      function initFacilityFilters(){
+        const prefSel = document.getElementById('facilityPref');
+        const munSel = document.getElementById('facilityMun');
+        if (prefSel) {
+          prefSel.addEventListener('change', onFacilityPrefChange);
+        }
+        if (munSel) {
+          munSel.addEventListener('change', function(){
+            CURRENT_FACILITY_ID = '';
+            loadFacilities();
+          });
+        }
+        onFacilityPrefChange();
       }
       function onFacilityChange(){
         const fid = document.getElementById('visitFacility').value;
         CURRENT_FACILITY_ID = fid || '';
+        setVisitSubmitDisabled(!fid);
         onFacilityChangeInternal(CURRENT_FACILITY_ID);
       }
       function onFacilityChangeInternal(fid){
@@ -206,11 +276,13 @@
       }
       window.addEventListener('load', function(){
         initTheme();
-        loadFacilities();
-        document.getElementById('visitFacility').addEventListener('change', onFacilityChange);
+        initFacilityFilters();
+        const sel = document.getElementById('visitFacility');
+        if (sel) sel.addEventListener('change', onFacilityChange);
         document.getElementById('inquiryType').addEventListener('change', onInquiryTypeChange);
         document.getElementById('visitDate').value = nowForDatetimeLocal();
         onInquiryTypeChange();
+        setVisitSubmitDisabled(true);
       });
     </script>
   </head>
@@ -225,7 +297,34 @@
 
     <h1>問い合わせ記録</h1>
     <form id="visitForm" onsubmit="event.preventDefault(); submitVisit();">
-      <div id="facilityWrap">
+      <div style="border:1px solid #eee; border-radius:6px; padding:12px; margin-top:8px;">
+        <div class="row" style="margin-top:0;">
+          <div>
+            <label for="facilityPref">都道府県</label>
+            <select id="facilityPref">
+              <option value="">全て</option>
+              <option>東京都</option>
+              <option>神奈川県</option>
+              <option>千葉県</option>
+              <option>埼玉県</option>
+              <option>茨城県</option>
+              <option selected>栃木県</option>
+              <option>群馬県</option>
+              <option>山梨県</option>
+            </select>
+          </div>
+          <div>
+            <label for="facilityMun">市区町村</label>
+            <select id="facilityMun" disabled>
+              <option value="">市区町村（全て）</option>
+            </select>
+          </div>
+        </div>
+        <div style="margin-top:8px;">
+          <small class="muted">市区町村を選ぶと、該当する施設だけに絞り込めます。</small>
+        </div>
+      </div>
+      <div id="facilityWrap" style="margin-top:12px;">
         <label for="visitFacility">施設</label>
         <select id="visitFacility"></select>
       </div>
@@ -397,7 +496,7 @@
       <label for="notes">備考</label>
       <textarea id="notes" rows="3" placeholder="自由記入"></textarea>
 
-      <button type="submit">記録を登録</button>
+  <button type="submit" id="visitSubmitBtn">記録を登録</button>
     </form>
 
     <h2>施設別の問い合わせ一覧</h2>
