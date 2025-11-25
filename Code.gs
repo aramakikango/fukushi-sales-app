@@ -834,6 +834,86 @@ function getFacilityActivitySummary(facilityId) {
   return { visitCount, lastVisitDate, reportCount, lastReportDate };
 }
 
+function getFacilityMap() {
+  const map = {};
+  getFacilities().forEach(function(f){ map[f.id] = f; });
+  return map;
+}
+
+function normalizeFacilityType(value) {
+  if (value == null) return '';
+  return String(value).trim();
+}
+
+function getFacilityReferralSummary(params) {
+  params = params || {};
+  const limit = Number(params.limit || 5);
+  const typeFilter = normalizeFacilityType(params.facilityType);
+  const facilities = getFacilities();
+  const stats = {};
+  facilities.forEach(function(f){
+    if (typeFilter && normalizeFacilityType(f.facilityType) !== typeFilter) return;
+    stats[f.id] = {
+      facilityId: f.id,
+      facilityName: f.name,
+      facilityType: f.facilityType || '',
+      visitCount: 0,
+      referralCount: 0,
+      reportCount: 0,
+      lastVisitDate: '',
+      lastReferralDate: ''
+    };
+  });
+  const visits = getVisits({});
+  visits.forEach(function(v){
+    const stat = stats[v.facilityId];
+    if (!stat) return;
+    stat.visitCount++;
+    if (v.visitDate && (!stat.lastVisitDate || String(v.visitDate) > stat.lastVisitDate)) {
+      stat.lastVisitDate = String(v.visitDate);
+    }
+    if (v.referralSource) {
+      stat.referralCount++;
+      if (!stat.lastReferralDate || (v.visitDate && String(v.visitDate) > stat.lastReferralDate)) {
+        stat.lastReferralDate = String(v.visitDate);
+      }
+    }
+  });
+  const reports = getReports({});
+  reports.forEach(function(r){
+    const stat = stats[r.facilityId];
+    if (!stat) return;
+    stat.reportCount++;
+  });
+  const sorted = Object.values(stats).filter(function(s){
+    return s.visitCount || s.referralCount || s.reportCount;
+  });
+  sorted.sort(function(a,b){
+    if (b.referralCount !== a.referralCount) return b.referralCount - a.referralCount;
+    if (b.visitCount !== a.visitCount) return b.visitCount - a.visitCount;
+    return (b.lastVisitDate || '').localeCompare(a.lastVisitDate || '');
+  });
+  return sorted.slice(0, limit);
+}
+
+function getLatestVisitsSummary(params) {
+  params = params || {};
+  const limit = Number(params.limit || 5);
+  const facilityType = normalizeFacilityType(params.facilityType);
+  const facilityMap = getFacilityMap();
+  const visits = getVisits({});
+  const filtered = visits.filter(function(v){
+    const facility = facilityMap[v.facilityId];
+    if (!facility) return false;
+    if (!facilityType) return true;
+    return normalizeFacilityType(facility.facilityType) === facilityType;
+  }).map(function(v){
+    const facility = facilityMap[v.facilityId] || {};
+    return Object.assign({}, v, { facilityName: facility.name || '' });
+  });
+  return filtered.slice(0, limit);
+}
+
 // 営業報告追加
 function addReport(data) {
   if (!data || !data.facilityId) throw new Error('facilityId は必須です');
@@ -904,8 +984,9 @@ function addReport(data) {
   set('summary', data.summary || '');
   set('details', data.details || '');
   set('followUp', data.followUp || '');
-  set('contactId', data.contactId || '');
-  set('contactName', data.contactName || '');
+  const normalizedTargets = normalizeReportTargets(data);
+  set('contactId', normalizedTargets[0] && normalizedTargets[0].contactId ? normalizedTargets[0].contactId : (data.contactId || ''));
+  set('contactName', normalizedTargets[0] && normalizedTargets[0].contactName ? normalizedTargets[0].contactName : (data.contactName || ''));
   set('nextAction', data.nextAction || '');
   set('nextActionDate', data.nextActionDate || '');
   set('nextActionOwner', data.nextActionOwner || '');
@@ -915,6 +996,8 @@ function addReport(data) {
   set('createdAt', createdAt);
   set('createdBy', createdBy);
   sheet.appendRow(row);
+  // 複数利用者を紐づける
+  persistReportTargets(id, normalizedTargets);
   // Webhook 通知（LINE WORKS など）
   try {
     const facilityName = (function(){
@@ -932,6 +1015,78 @@ function addReport(data) {
   }
 
   return { id, createdAt };
+}
+
+function normalizeReportTargets(data) {
+  if (!data) return [];
+  const seen = new Set();
+  const normalized = [];
+  const pushTarget = function(target) {
+    if (!target) return;
+    const contactId = target.contactId ? String(target.contactId).trim() : '';
+    const contactName = target.contactName ? String(target.contactName).trim() : '';
+    const key = contactId || contactName;
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    normalized.push({ contactId: contactId, contactName: contactName });
+  };
+  if (Array.isArray(data.contactTargets)) {
+    data.contactTargets.forEach(pushTarget);
+  }
+  pushTarget({ contactId: data.contactId, contactName: data.contactName });
+  if (!normalized.length && data.contactName) {
+    normalized.push({ contactId: '', contactName: String(data.contactName).trim() });
+  }
+  return normalized;
+}
+
+const REPORT_TARGETS_HEADERS = ['id','reportId','contactId','contactName','createdAt'];
+
+function ensureReportTargetsSheet() {
+  const ss = getSpreadsheet();
+  let sheet = ss.getSheetByName('ReportTargets');
+  if (!sheet) {
+    sheet = ss.insertSheet('ReportTargets');
+  }
+  sheet.getRange(1, 1, 1, REPORT_TARGETS_HEADERS.length).setValues([REPORT_TARGETS_HEADERS]);
+  return sheet;
+}
+
+function persistReportTargets(reportId, targets) {
+  if (!reportId || !Array.isArray(targets) || !targets.length) return;
+  const sheet = ensureReportTargetsSheet();
+  const rows = [];
+  const createdAt = nowIso();
+  targets.forEach(function(target){
+    const contactId = target.contactId || '';
+    const contactName = target.contactName || '';
+    if (!contactId && !contactName) return;
+    rows.push([makeId('RPTT'), reportId, contactId, contactName, createdAt]);
+  });
+  if (!rows.length) return;
+  const startRow = sheet.getLastRow() + 1;
+  sheet.getRange(startRow, 1, rows.length, REPORT_TARGETS_HEADERS.length).setValues(rows);
+}
+
+function getReportTargetsMap() {
+  const ss = getSpreadsheet();
+  const sheet = ss.getSheetByName('ReportTargets');
+  if (!sheet) return {};
+  const rows = sheet.getDataRange().getValues();
+  if (!rows || rows.length <= 1) return {};
+  const headers = rows[0];
+  const idx = {}; headers.forEach((h,i)=> idx[h]=i);
+  const map = {};
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i];
+    const reportId = idx.reportId != null ? r[idx.reportId] : '';
+    if (!reportId) continue;
+    const contactId = idx.contactId != null ? r[idx.contactId] : '';
+    const contactName = idx.contactName != null ? r[idx.contactName] : '';
+    if (!map[reportId]) map[reportId] = [];
+    map[reportId].push({ contactId: contactId, contactName: contactName });
+  }
+  return map;
 }
 
 // ----- LINE WORKS Webhook helper -----
@@ -1012,6 +1167,7 @@ function getReports(params) {
   const headers = rows[0];
   const idx = {};
   headers.forEach((h,i)=> idx[h]=i);
+  const reportTargetsMap = getReportTargetsMap();
   const list = [];
   for (let i = 1; i < rows.length; i++) {
     const r = rows[i];
@@ -1036,12 +1192,15 @@ function getReports(params) {
       statusStage: idx.statusStage != null ? r[idx.statusStage] : '',
       reminderFlag: idx.reminderFlag != null ? r[idx.reminderFlag] : ''
     };
+    const targets = reportTargetsMap[item.id] || [];
+    item.contacts = targets;
     if (params.facilityId && item.facilityId !== params.facilityId) continue;
     if (params.from && item.reportDate < params.from) continue;
     if (params.to && item.reportDate > params.to) continue;
     if (params.q) {
       const q = params.q.toLowerCase();
-      const text = (item.summary || '') + ' ' + (item.details || '') + ' ' + (item.followUp || '') + ' ' + (item.channel || '') + ' ' + (item.contactName || '');
+      const contactText = targets.map(t => t.contactName || '').join(' ');
+      const text = (item.summary || '') + ' ' + (item.details || '') + ' ' + (item.followUp || '') + ' ' + (item.channel || '') + ' ' + (item.contactName || '') + ' ' + contactText;
       if (!text.toLowerCase().includes(q)) continue;
     }
     list.push(item);

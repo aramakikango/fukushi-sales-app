@@ -1,0 +1,130 @@
+Total rows (excluding header): 365
+Column counts distribution (including header line):
+  columns=6: lines=1
+  columns=7: lines=365
+
+Rows where contactName appears to be an email: 65
+  line 3: facilityId=FAC-2025111201 contactName=yu-aikoubou@cc9.ne.jp
+  line 4: facilityId=FAC-2025111202 contactName=umigame@cc9.ne.jp
+  line 5: facilityId=FAC-2025111203 contactName=stsw@cc9.ne.jp
+  line 6: facilityId=FAC-2025111204 contactName=kouwa-cares@cc9.ne.jp
+  line 7: facilityId=FAC-2025111205 contactName=nohara12@violin.ocn.ne.jp
+  line 8: facilityId=FAC-2025111206 contactName=yukkura@grace.ocn.ne.jp
+  line 9: facilityId=FAC-2025111207 contactName=warashibenosato@cc9.ne.jp
+  line 10: facilityId=FAC-2025111208 contactName=kuranomachi_wave1@yahoo.co.jp
+  line 11: facilityId=FAC-2025111209 contactName=t-tochigi@cc9.ne.jp
+  line 12: facilityId=FAC-2025111210 contactName=soudankurabu@gmail.com
+  line 13: facilityId=FAC-2025111211 contactName=zaitaku-tochigi@tochigishi-shakyo.or.jp
+  line 14: facilityId=FAC-2025111212 contactName=ayumien@ayumien.or.jp
+  line 15: facilityId=FAC-2025111213 contactName=konoyubi-tomare@tmt.ne.jp
+  line 16: facilityId=FAC-2025111214 contactName=nasubinosato@cc9.ne.jp
+  line 17: facilityId=FAC-2025111215 contactName=etusoudan@sfk.or.jp
+  line 18: facilityId=FAC-2025111217 contactName=sp-frontier@cc9.ne.jp
+  line 19: facilityId=FAC-2025111218 contactName=m2-soudan@suginokokai.or.jp
+  line 20: facilityId=FAC-2025111219 contactName=sakura@tensei-kai.or.jp
+  line 21: facilityId=FAC-2025111220 contactName=wisdom@merryland.ed.jp
+  line 22: facilityId=FAC-2025111221 contactName=honbu.hibarino@tsuganosato.com
+  line 23: facilityId=FAC-2025111222 contactName=heartfulfukiage@cc9.ne.jp
+  line 24: facilityId=LIF-2025111202 contactName=yukkura@grace.ocn.ne.jp
+  line 25: facilityId=LIF-2025111203 contactName=umigame@cc9.ne.jp
+  line 26: facilityId=LIF-2025111204 contactName=ayumien@ayumien.or.jp
+  line 27: facilityId=LIF-2025111205 contactName=konoyubi-tomare@tmt.ne.jp
+  line 28: facilityId=LIF-2025111206 contactName=nasubinosato@cc9.ne.jp
+  line 29: facilityId=LIF-2025111208 contactName=sp-frontier@cc9.ne.jp
+  line 30: facilityId=LIF-2025111209 contactName=m2-soudan@suginokokai.or.jp
+  line 31: facilityId=LIF-2025111210 contactName=sakura@tensei-kai.or.jp
+  line 32: facilityId=LIF-2025111211 contactName=wisdom@merryland.ed.jp
+  line 33: facilityId=LIF-2025111212 contactName=honbu.hibarino@tsuganosato.com
+  line 34: facilityId=LIF-2025111213 contactName=heartfulfukiage@cc9.ne.jp
+  line 35: facilityId=LIF-2025111214 contactName=kouwa-cares@cc9.ne.jp
+  line 36: facilityId=LIF-2025111215 contactName=kuranomachi_wave1@yahoo.co.jp
+  line 37: facilityId=LIF-2025111216 contactName=warashibenosato@cc9.ne.jp
+  line 38: facilityId=LIF-2025111217 contactName=t-tochigi@cc9.ne.jp
+  line 39: facilityId=LIF-2025111218 contactName=zaitaku-tochigi@tochigishi-shakyo.or.jp
+  line 40: facilityId=JOBB-2025111201 contactName=umigame@cc9.ne.jp
+  line 41: facilityId=JOBB-2025111202 contactName=warashibenosato@cc9.ne.jp
+  line 42: facilityId=JOBB-2025111203 contactName=ayumien@ayumien.or.jp
+  line 43: facilityId=JOBB-2025111204 contactName=m2-soudan@suginokokai.or.jp
+  line 44: facilityId=JOBB-2025111205 contactName=honbu.hibarino@tsuganosato.com
+  line 45: facilityId=JOBB-2025111206 contactName=heartfulfukiage@cc9.ne.jp
+  line 46: facilityId=JOBB-2025111207 contactName=zaitaku-tochigi@tochigishi-shakyo.or.jp
+  line 47: facilityId=JOBB-2025111208 contactName=sakura@tensei-kai.or.jp
+  line 48: facilityId=JOBB-2025111209 contactName=nohara12@violin.ocn.ne.jp
+  line 49: facilityId=JOBB-2025111210 contactName=kuranomachi_wave1@yahoo.co.jp
+  line 50: facilityId=JOBB-2025111213 contactName=kouwa-cares@cc9.ne.jp
+  line 51: facilityId=JOBB-2025111214 contactName=sp-frontier@cc9.ne.jp
+  line 52: facilityId=JOBB-2025111215 contactName=nasubinosato@cc9.ne.jp
+
+Rows where facilityId is numeric only: 17
+  line 336: facilityId=149 contactName=(福)とちぎ健康福祉協会
+  line 338: facilityId=150 contactName=(福)恵友会
+  line 342: facilityId=151 contactName=株式会社COCOCOLOR
+  line 347: facilityId=153 contactName=合同会社backyard
+  line 350: facilityId=160 contactName=(特非)とちの木地域障害者館
+  line 351: facilityId=149 contactName=(福)とちぎ健康福祉協会
+  line 353: facilityId=150 contactName=(福)恵友会
+  line 355: facilityId=151 contactName=株式会社COCOCOLOR
+  line 357: facilityId=152 contactName=（有）ハウス・ネット
+  line 358: facilityId=153 contactName=合同会社backyard
+  line 359: facilityId=149 contactName=(福)とちぎ健康福祉協会
+  line 360: facilityId=160 contactName=(特非)とちの木地域障害者館
+  line 361: facilityId=150 contactName=(福)恵友会
+  line 362: facilityId=151 contactName=株式会社COCOCOLOR
+  line 363: facilityId=152 contactName=（有）ハウス・ネット
+  line 364: facilityId=153 contactName=合同会社backyard
+  line 365: facilityId=160 contactName=(特非)とちの木地域障害者館
+
+Malformed / short rows: 1
+  line 349: cols=6 raw=['FC-20251113060504-582', 'FAC-2025111279', '(福)たかはら学園', '', '', '2025-11-12T21:0414.843Z']
+
+Duplicate (facilityId, contactName) groups: 99
+  JOBA-2025111201 | (特非)ハートフルふきあげ : 2 occurrences
+  JOBA-2025111202 | アイエヌライン（同） : 2 occurrences
+  JOBA-2025111233 | （同）ＦＡＮ : 2 occurrences
+  JOBA-2025111234 | (福)洗心会 : 2 occurrences
+  JOBA-2025111235 | (一社)ソーシャルファーム栃木 : 2 occurrences
+  JOBA-2025111237 | (株)ジョイワーク : 2 occurrences
+  JOBA-2025111238 | （福）めぶき会 : 2 occurrences
+  JOBA-2025111239 | （福）めぶき会 : 2 occurrences
+  JOBA-2025111240 | （同）ジョイナイン : 2 occurrences
+  JOBA-2025111241 | （株）Ｌａｋｕｓｈｏｎ : 2 occurrences
+  JOBA-2025111242 | （株）エイジェック・スマイル : 2 occurrences
+  JOBA-2025111243 | （株）きづ菜 : 2 occurrences
+  JOBA-2025111244 | （同）Mahalo : 2 occurrences
+  JOBA-2025111245 | (株)イルミナ : 2 occurrences
+  JOBA-2025111246 | （株）フードセレクション : 2 occurrences
+  FAC-2025111202 | Ｗin Ｇraf□ti(株) : 2 occurrences
+  FAC-2025111203 | (株)プランテーション真岡 : 2 occurrences
+  FAC-2025111204 | (株)スイッチ : 2 occurrences
+  FAC-2025111201 | (福)足利むつみ会 : 6 occurrences
+  FAC-2025111202 | (一社)シンプルジョブス : 6 occurrences
+  FAC-2025111203 | (株)エルシード : 6 occurrences
+  FAC-2025111204 | (株)エルシード : 6 occurrences
+  FAC-2025111205 | (一社)まなび : 6 occurrences
+  FAC-2025111206 | (株)ステップクラージュ : 5 occurrences
+  FAC-2025111207 | (特非)青い鳥 : 6 occurrences
+  FAC-2025111208 | (株)エム・サポート : 5 occurrences
+  FAC-2025111212 | (特非)めぐみの会 : 4 occurrences
+  FAC-2025111213 | (株)エクシード : 4 occurrences
+  FAC-2025111214 | (株)HAPPY・HAPPY : 4 occurrences
+  FAC-2025111215 | (株)千手 : 3 occurrences
+  FAC-2025111216 | (株)お日さま : 5 occurrences
+  FAC-2025111217 | ワークステーション天神（同） : 5 occurrences
+  FAC-2025111218 | (株)ディーセント・リワーク : 6 occurrences
+  FAC-2025111219 | (株)ROUND Color : 5 occurrences
+  FAC-2025111221 | (株)ＴＮプランテーション : 2 occurrences
+  FAC-2025111222 | (株)アサヒ : 3 occurrences
+  FAC-2025111223 | (有)カネヒロ : 3 occurrences
+  FAC-2025111224 | (株)８ : 3 occurrences
+  FAC-2025111225 | (同)フロンティアサポート : 2 occurrences
+  FAC-2025111226 | (株)ミンナのミライ : 3 occurrences
+  FAC-2025111227 | (株)ITADAKIファーム : 3 occurrences
+  FAC-2025111229 | (株)MOM'S : 3 occurrences
+  FAC-2025111230 | (株)ハーベスト : 3 occurrences
+  FAC-2025111231 | (株)ハーベスト : 3 occurrences
+  FAC-2025111232 | （福）めぶき会 : 3 occurrences
+  FAC-2025111233 | （同）FAN : 3 occurrences
+  FAC-2025111228 | (株)日々とスパイス : 2 occurrences
+  FAC-2025111234 | (福)洗心会 : 2 occurrences
+  FAC-2025111235 | (一社)ソーシャルファーム栃木 : 3 occurrences
+  FAC-2025111236 | (株)RUN-UP : 3 occurrences

@@ -425,18 +425,19 @@
           REPORT_CACHE = {};
           let html = '';
           list.forEach(function(r) {
-      REPORT_CACHE[r.id] = r;
-      html += '<tr><td>' + escapeHtml(r.reportDate || r.createdAt) + '</td>' +
-                    '<td>' + escapeHtml(r.channel || '') + '</td>' +
-                    '<td>' + escapeHtml(r.summary) + '</td>' +
-                    '<td>' + escapeHtml(r.contactName || '') + '</td>' +
-                    '<td>' + escapeHtml(r.reporterName || r.createdBy || '') + '</td>' +
-                    '<td>' + escapeHtml(r.details || '')
-                        + (r.followUp ? ('<br><em>Follow: ' + escapeHtml(r.followUp) + '</em>') : '')
-                        + (r.nextAction ? ('<div class="muted">次: ' + escapeHtml(r.nextAction) + (r.nextActionDate? ('（' + escapeHtml(r.nextActionDate) + '）') : '') + '</div>') : '')
-                        + (r.statusStage || r.priority ? ('<div class="muted">' + escapeHtml(r.statusStage||'') + (r.priority? (' / ' + escapeHtml(r.priority)) : '') + (r.nextActionOwner? (' / ' + escapeHtml(r.nextActionOwner)) : '') + '</div>') : '')
-                        + '<div style="margin-top:6px;"><button type="button" onclick="copyReport(\'' + String(r.id).replace(/'/g,"&#39;") + '\')">コピー</button></div>'
-                        + '</td></tr>';
+            REPORT_CACHE[r.id] = r;
+            const contactLabel = formatReportContacts(r);
+            html += '<tr><td>' + escapeHtml(r.reportDate || r.createdAt) + '</td>' +
+                          '<td>' + escapeHtml(r.channel || '') + '</td>' +
+                          '<td>' + escapeHtml(r.summary) + '</td>' +
+                          '<td>' + escapeHtml(contactLabel) + '</td>' +
+                          '<td>' + escapeHtml(r.reporterName || r.createdBy || '') + '</td>' +
+                          '<td>' + escapeHtml(r.details || '')
+                              + (r.followUp ? ('<br><em>Follow: ' + escapeHtml(r.followUp) + '</em>') : '')
+                              + (r.nextAction ? ('<div class="muted">次: ' + escapeHtml(r.nextAction) + (r.nextActionDate? ('（' + escapeHtml(r.nextActionDate) + '）') : '') + '</div>') : '')
+                              + (r.statusStage || r.priority ? ('<div class="muted">' + escapeHtml(r.statusStage||'') + (r.priority? (' / ' + escapeHtml(r.priority)) : '') + (r.nextActionOwner? (' / ' + escapeHtml(r.nextActionOwner)) : '') + '</div>') : '')
+                              + '<div style="margin-top:6px;"><button type="button" onclick="copyReport(\'' + String(r.id).replace(/'/g,"&#39;") + '")">コピー</button></div>'
+                              + '</td></tr>';
           });
           tbody.innerHTML = html;
           renderRecentDigest(list);
@@ -446,6 +447,19 @@
       function escapeHtml(str) {
         if (!str) return '';
         return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      }
+      function formatReportContacts(report) {
+        if (!report) return '';
+        const names = [];
+        const push = (value) => {
+          if (!value) return;
+          if (names.indexOf(value) === -1) names.push(value);
+        };
+        if (Array.isArray(report.contacts)) {
+          report.contacts.forEach(target => push(target.contactName));
+        }
+        push(report.contactName);
+        return names.join(' / ');
       }
 
       function loadEmployeesForReporter() {
@@ -655,26 +669,28 @@
           }
         }
         // 担当者
-        const contactSel = document.getElementById('contactSelect');
-        const unknownChk = document.getElementById('unknownContactChk');
-        if (unknownChk) {
-          unknownChk.checked = (r.contactName === '不明');
-          updateUnknownButtonState(unknownChk.checked);
-        }
-        if (contactSel && !unknownChk.checked) {
-          let set = false;
-          if (r.contactId) {
-            contactSel.value = r.contactId;
-            set = (contactSel.value === r.contactId);
+          const contactSel = document.getElementById('contactSelect');
+          const unknownChk = document.getElementById('unknownContactChk');
+          const hasUnknown = Array.isArray(r.contacts) ? r.contacts.some(c => c.contactName === '不明') : (r.contactName === '不明');
+          if (unknownChk) {
+            unknownChk.checked = hasUnknown;
+            updateUnknownButtonState(unknownChk.checked);
           }
-          if (!set && r.contactName) {
-            for (let i=0;i<contactSel.options.length;i++) {
-              if (contactSel.options[i].text === r.contactName) { contactSel.selectedIndex = i; set = true; break; }
+          if (contactSel && !unknownChk.checked) {
+            let set = false;
+            const primary = Array.isArray(r.contacts) && r.contacts.length ? r.contacts[0] : { contactId: r.contactId, contactName: r.contactName };
+            if (primary && primary.contactId) {
+              contactSel.value = primary.contactId;
+              set = (contactSel.value === primary.contactId);
             }
+            if (!set && primary && primary.contactName) {
+              for (let i=0;i<contactSel.options.length;i++) {
+                if (contactSel.options[i].text === primary.contactName) { contactSel.selectedIndex = i; set = true; break; }
+              }
+            }
+            if (!set) contactSel.selectedIndex = 0;
+            showSelectedContactNotes();
           }
-          if (!set) contactSel.selectedIndex = 0;
-          showSelectedContactNotes();
-        }
         // 報告者（社員）
         const repSel = document.getElementById('reporterSelect');
         if (repSel && r.reporterName) {
@@ -745,9 +761,10 @@
         let html = '<div class="muted" style="margin-bottom:4px;">最近の報告（5件）</div><div class="digest-cards">';
         five.forEach(function(r){
           const dstr = (r.reportDate || r.createdAt) ? new Date(r.reportDate || r.createdAt).toLocaleString() : '';
+          const digestContact = formatReportContacts(r);
           html += '<div class="digest-card">'
                 + '<div class="title">' + escapeHtml(r.summary || '(無題)') + '</div>'
-                + '<div class="meta">' + escapeHtml(dstr) + ' / ' + escapeHtml(r.channel || '') + (r.contactName? (' / ' + escapeHtml(r.contactName)) : '') + '</div>'
+                + '<div class="meta">' + escapeHtml(dstr) + ' / ' + escapeHtml(r.channel || '') + (digestContact ? (' / ' + escapeHtml(digestContact)) : '') + '</div>'
                 + (r.nextAction ? ('<div class="muted">次: ' + escapeHtml(r.nextAction) + (r.nextActionDate? ('（' + escapeHtml(r.nextActionDate) + '）') : '') + '</div>') : '')
                 + '<div style="margin-top:6px;"><button type="button" style="padding:4px 8px;font-size:12px;" onclick="copyReport(\'' + String(r.id).replace(/'/g,"&#39;") + '\')">コピー</button></div>'
                 + '</div>';
@@ -1296,19 +1313,19 @@
           <label for="statusStage">ステータス</label>
           <select id="statusStage">
             <option value="">未設定</option>
-            <option value="新規接触">新規接触</option>
-            <option value="継続交渉">継続交渉</option>
-            <option value="見積・提案中">見積・提案中</option>
-            <option value="意思決定待ち">意思決定待ち</option>
-            <option value="受注">受注</option>
-            <option value="失注">失注</option>
+            <option value="初回相談">初回相談（ニーズヒアリング開始）</option>
+            <option value="課題整理">課題整理・体制確認</option>
+            <option value="契約調整">契約条件調整中</option>
+            <option value="契約準備">契約書/申請書類準備中</option>
+            <option value="契約締結済">契約締結済</option>
+            <option value="契約終了・更新">契約終了/更新待ち</option>
           </select>
           <details style="margin-top:4px;font-size:12px;color:#555;">
-            <summary>ステージの目安</summary>
+            <summary>ステータスの目安</summary>
             <div style="padding:4px 0;line-height:1.4;">
-              <b>新規接触</b>: 初回または情報収集段階 / <b>継続交渉</b>: 具体的なニーズ・課題ヒアリング進行中<br>
-              <b>見積・提案中</b>: 金額/提案資料提示済み / <b>意思決定待ち</b>: 社内検討・承認待ち<br>
-              <b>受注</b>: 契約・導入確定 / <b>失注</b>: 見送り理由確定（理由ヒアリング推奨）
+              <b>初回相談</b>: 案件の全体像を確認中 / <b>課題整理</b>: ご家庭や事業所の課題・必要支援を深掘り中<br>
+              <b>契約調整</b>: 見込み金額や条件、利用開始日などを調整中 / <b>契約準備</b>: 契約書や申請資料を取りまとめ・押印準備中<br>
+              <b>契約締結済</b>: 公式契約・支援開始済 / <b>契約終了・更新</b>: 契約満了が近い・更新検討中
             </div>
           </details>
         </div>

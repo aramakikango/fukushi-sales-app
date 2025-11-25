@@ -27,6 +27,11 @@
         font-size: 15px;
       }
 
+      .muted {
+        opacity: 0.7;
+        font-size: 14px;
+      }
+
       /* ===== Menu List ===== */
       .menu-list {
         list-style: none;
@@ -92,6 +97,7 @@
         --btnBg: #fff;
         --btnHoverBg: #0c66d4;
         --btnHoverText: #fff;
+        --panelBg: #fdfdfd;
       }
 
       /* ===== Dark Theme Variables ===== */
@@ -103,6 +109,7 @@
         --btnBg: #1b1b1b;
         --btnHoverBg: #1f3a75;
         --btnHoverText: #fff;
+        --panelBg: #161616;
       }
 
       /* ===== System Dark Mode ===== */
@@ -122,6 +129,54 @@
       body {
         background: var(--bg);
         color: var(--text);
+      }
+
+      .analytics-section {
+        margin-top: 32px;
+        max-width: 980px;
+      }
+
+      .analytics-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 16px;
+        margin-top: 12px;
+      }
+
+      .analytics-card {
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: var(--panelBg, #fff);
+        padding: 18px;
+        box-shadow: 0 10px 25px rgba(15,23,42,0.08);
+      }
+
+      .analytics-card h3 {
+        margin: 0 0 10px;
+        font-size: 18px;
+      }
+
+      .analytics-card ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        font-size: 14px;
+      }
+
+      .analytics-card li {
+        color: var(--text);
+      }
+
+      .analytics-card .muted-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        margin-top: 12px;
+        font-size: 13px;
+        color: var(--textLink);
       }
 
       /* ===== Mobile Optimized ===== */
@@ -177,7 +232,67 @@
         updateThemeButton(next);
       }
 
-      window.addEventListener("load", initTheme);
+      function loadAnalytics() {
+        const params = { facilityType: '共同生活援助（グループホーム）', limit: 5 };
+        google.script.run.withSuccessHandler(renderTopReferrals).getFacilityReferralSummary(params);
+        google.script.run.withSuccessHandler(renderLatestVisits).getLatestVisitsSummary(params);
+      }
+
+      function renderTopReferrals(list) {
+        const container = document.getElementById('topReferralList');
+        if (!container) return;
+        if (!list || !list.length) {
+          container.innerHTML = '<li>該当データがありません</li>';
+          return;
+        }
+        container.innerHTML = list.map(function(item, index){
+          const rank = index + 1;
+          const label = escapeHtml(item.facilityName || '施設なし');
+          const referred = item.referralCount || 0;
+          const visits = item.visitCount || 0;
+          const last = formatDateForDisplay(item.lastReferralDate || item.lastVisitDate);
+          return '<li><strong>' + rank + '. ' + label + '</strong><br>'
+            + '紹介 ' + referred + '件 / 訪問 ' + visits + '件'
+            + (last ? ('（最終: ' + escapeHtml(last) + '）') : '')
+            + '</li>';
+        }).join('');
+      }
+
+      function renderLatestVisits(list) {
+        const container = document.getElementById('latestVisitList');
+        if (!container) return;
+        if (!list || !list.length) {
+          container.innerHTML = '<li>該当データがありません</li>';
+          return;
+        }
+        container.innerHTML = list.map(function(item){
+          const dateLabel = formatDateForDisplay(item.visitDate);
+          const name = escapeHtml(item.facilityName || '施設不明');
+          const purpose = escapeHtml(item.visitPurpose || item.inquiryType || '内容なし');
+          return '<li><strong>' + (dateLabel || '日時不明') + '</strong><br>'
+            + name + ' / ' + purpose + '</li>';
+        }).join('');
+      }
+
+      function escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;');
+      }
+
+      function formatDateForDisplay(value) {
+        if (!value) return '';
+        const date = new Date(value);
+        if (isNaN(date.getTime())) return escapeHtml(value);
+        return date.toLocaleString();
+      }
+
+      window.addEventListener("load", function(){
+        initTheme();
+        loadAnalytics();
+      });
     </script>
   </head>
 
@@ -198,5 +313,22 @@
       <li><a class="menu-item" href="<?= ScriptApp.getService().getUrl(); ?>?page=visits">問い合わせ記録</a></li>
       <li><a class="menu-item" href="<?= ScriptApp.getService().getUrl(); ?>?page=employees">社員登録</a></li>
     </ul>
+
+    <section class="analytics-section">
+      <h2>グループホーム向けダッシュボード</h2>
+      <p class="muted">直近の問い合わせと紹介件数ランキングを確認し、優先対応先がすぐ分かるようにします。</p>
+      <div class="analytics-grid">
+        <article class="analytics-card">
+          <h3>紹介件数トップのグループホーム</h3>
+          <ul id="topReferralList"><li>読み込み中…</li></ul>
+          <a class="muted-link" href="<?= ScriptApp.getService().getUrl(); ?>?page=reports">営業報告一覧で詳細を見る</a>
+        </article>
+        <article class="analytics-card">
+          <h3>最新の問い合わせ</h3>
+          <ul id="latestVisitList"><li>読み込み中…</li></ul>
+          <a class="muted-link" href="<?= ScriptApp.getService().getUrl(); ?>?page=visits">問い合わせ記録を開く</a>
+        </article>
+      </div>
+    </section>
   </body>
 </html>
