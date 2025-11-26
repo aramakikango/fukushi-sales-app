@@ -126,6 +126,25 @@
           opt.selected = targets.has(String(opt.value));
         });
       }
+      function onCertificateTypeChange(){
+        const t = (document.getElementById('certificateType')||{}).value || '';
+        const lvl = document.getElementById('certificateLevel');
+        if (!lvl) return;
+        lvl.innerHTML = '';
+        if (!t || t === 'なし') {
+          const o = document.createElement('option'); o.value=''; o.textContent='-- 等級なし --'; lvl.appendChild(o); return;
+        }
+        if (t === '身体' || t === '精神') {
+          const blank = document.createElement('option'); blank.value=''; blank.textContent='-- 選択 --'; lvl.appendChild(blank);
+          ['1','2','3'].forEach(function(v){ const o=document.createElement('option'); o.value=v; o.textContent=v; lvl.appendChild(o); });
+          return;
+        }
+        if (t === '知的') {
+          const blank = document.createElement('option'); blank.value=''; blank.textContent='-- 選択 --'; lvl.appendChild(blank);
+          ['B1','B2','A1','A2'].forEach(function(v){ const o=document.createElement('option'); o.value=v; o.textContent=v; lvl.appendChild(o); });
+          return;
+        }
+      }
       function beginSubmitAttempt(){
         isSubmittingVisit = true;
         setVisitSubmitDisabled(true);
@@ -319,6 +338,9 @@
           document.getElementById('subjectGender').value = v.subjectGender || '';
           document.getElementById('diagnosis').value = v.diagnosis || '';
           setMultiSelectValue('disabilityCategory', v.disabilityCategory || '');
+          try { document.getElementById('certificateType').value = v.certificateType || ''; } catch(e){}
+          try { onCertificateTypeChange(); } catch(e){}
+          try { document.getElementById('certificateLevel').value = v.certificateLevel || ''; } catch(e){}
           document.getElementById('careLevel').value = v.careLevel || '';
           document.getElementById('residenceMunicipality').value = v.residenceMunicipality || '';
           document.getElementById('wantsGroupHome').checked = (v.wantsGroupHome === '1' || v.wantsGroupHome === true || v.wantsGroupHome === 'true');
@@ -392,6 +414,9 @@
           subjectGender: (document.getElementById('subjectGender')||{}).value || '',
           diagnosis: document.getElementById('diagnosis').value,
           disabilityCategory: getMultiSelectValue('disabilityCategory'),
+          // 障害者手帳情報
+          certificateType: (document.getElementById('certificateType')||{}).value || '',
+          certificateLevel: (document.getElementById('certificateLevel')||{}).value || '',
           careLevel: (document.getElementById('careLevel')||{}).value || '',
           residenceMunicipality: (document.getElementById('residenceMunicipality')||{}).value || '',
           wantsGroupHome: document.getElementById('wantsGroupHome').checked,
@@ -617,7 +642,7 @@
           </div>
           <div>
             <label for="disabilityCategory">障害区分</label>
-            <select id="disabilityCategory" multiple size="8" title="Ctrl+クリックまたはShift+クリックで複数選択できます">
+            <select id="disabilityCategory" title="選択してください">
               <option value="">-- 選択 --</option>
               <option value="区分なし">区分なし</option>
               <option value="区分1">区分1</option>
@@ -627,6 +652,22 @@
               <option value="区分5">区分5</option>
               <option value="区分6">区分6</option>
             </select>
+            <div style="margin-top:8px;">
+              <label for="certificateType">障害者手帳</label>
+              <select id="certificateType" onchange="onCertificateTypeChange()">
+                <option value="">-- 選択 --</option>
+                <option value="身体">身体</option>
+                <option value="精神">精神</option>
+                <option value="知的">知的</option>
+                <option value="なし">なし</option>
+              </select>
+            </div>
+            <div style="margin-top:6px;" id="certificateLevelWrap">
+              <label for="certificateLevel">手帳等級</label>
+              <select id="certificateLevel">
+                <option value="">-- 先に種類を選択 --</option>
+              </select>
+            </div>
           </div>
         </div>
         <div class="row">

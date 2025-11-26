@@ -758,6 +758,9 @@ function addVisit(data) {
   set('subjectGender', data.subjectGender || '');
   set('diagnosis', data.diagnosis || '');
   set('disabilityCategory', data.disabilityCategory || '');
+  // 障害者手帳情報
+  if (data.certificateType != null) set('certificateType', data.certificateType || '');
+  if (data.certificateLevel != null) set('certificateLevel', data.certificateLevel || '');
   set('careLevel', data.careLevel || '');
   set('residenceMunicipality', data.residenceMunicipality || '');
   set('wantsGroupHome', data.wantsGroupHome ? '1' : '');
@@ -809,6 +812,8 @@ function getVisits(params) {
       subjectGender: idx.subjectGender!=null ? r[idx.subjectGender] : '',
       diagnosis: idx.diagnosis!=null ? r[idx.diagnosis] : '',
       disabilityCategory: idx.disabilityCategory!=null ? r[idx.disabilityCategory] : '',
+  certificateType: idx.certificateType!=null ? r[idx.certificateType] : '',
+  certificateLevel: idx.certificateLevel!=null ? r[idx.certificateLevel] : '',
       careLevel: idx.careLevel!=null ? r[idx.careLevel] : '',
       residenceMunicipality: idx.residenceMunicipality!=null ? r[idx.residenceMunicipality] : '',
       wantsGroupHome: idx.wantsGroupHome!=null ? r[idx.wantsGroupHome] : '',
@@ -888,6 +893,8 @@ function updateVisit(data) {
   if (targetRow === -1) throw new Error('指定IDの問い合わせが見つかりません');
   // 更新可能な列一覧
   const setters = ['facilityId','visitDate','inquiryType','visitorName','visitorRelation','callerPhone','callerEmail','subjectName','subjectAge','subjectGender','diagnosis','disabilityCategory','careLevel','residenceMunicipality','wantsGroupHome','wantsHomeNursing','desiredStartDate','visitPurpose','urgency','preferredContactMethod','preferredContactTime','referralSource','placementStage','placementStageDate','consentFlag','notes'];
+  // allow updating certificate info
+  ['certificateType','certificateLevel'].forEach(function(k){ if (setters.indexOf(k) === -1) setters.push(k); });
   // include outcome/rejection fields
   const extra = ['outcome','rejectionStage','rejectionDate','rejectionReason'];
   extra.forEach(function(k){ if (setters.indexOf(k) === -1) setters.push(k); });
